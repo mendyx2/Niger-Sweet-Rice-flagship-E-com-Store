@@ -24,7 +24,9 @@ uses a "simulate payment" page, so the whole buying flow can be tested. Producti
 Staff screens live at **/ops** (sign in with `OPS_PASSWORD`):
 
 - **/ops/orders**: move paid orders to preparing → out for delivery (with rider) → delivered. Each change texts the customer.
-- **/ops/sellers**: approve or reject reseller applications.
+- **/ops/returns**: review bag-replacement requests with photos; approving creates a free replacement order.
+- **/ops/partners**: approve sellers (wholesale prices) and affiliates.
+- **/ops/promotions**: publish promotions and coupon codes with start/end dates.
 - **/ops/prices**: set retail, wholesale and "was" (promo) prices, plus stock, per bag size. Every change is logged.
 - **/ops/zones**: delivery fees per area, and minimum orders (MOQ) for nearby towns.
 

@@ -10,10 +10,10 @@ import { PrismaClient, ZoneKind } from "@prisma/client";
 const db = new PrismaClient();
 
 const SIZES = [
-  { sizeKg: 50, stockQty: 0, isSampleSize: false },
-  { sizeKg: 25, stockQty: 0, isSampleSize: false },
-  { sizeKg: 5, stockQty: 0, isSampleSize: false },
-  { sizeKg: 1, stockQty: 0, isSampleSize: true },
+  { sizeKg: 50, stockQty: 0, isSampleSize: false, imageUrl: null },
+  { sizeKg: 25, stockQty: 0, isSampleSize: false, imageUrl: null },
+  { sizeKg: 5, stockQty: 0, isSampleSize: false, imageUrl: "/images/sweet-rice-5kg.jpg" },
+  { sizeKg: 1, stockQty: 0, isSampleSize: true, imageUrl: "/images/sweet-rice-1kg.jpg" },
 ];
 
 const ABUJA_AREAS = [
@@ -45,6 +45,13 @@ async function main() {
       update: {},
       create: { productId: product.id, sku: `NSR-${s.sizeKg}KG`, ...s },
     });
+    // Fill in a photo if the size doesn't have one yet; never overwrite staff data.
+    if (s.imageUrl) {
+      await db.variant.updateMany({
+        where: { productId: product.id, sizeKg: s.sizeKg, imageUrl: null },
+        data: { imageUrl: s.imageUrl },
+      });
+    }
   }
 
   let order = 0;

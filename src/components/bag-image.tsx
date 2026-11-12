@@ -1,16 +1,15 @@
 import Image from "next/image";
 import { site } from "@/lib/site";
 
-/**
- * Product photo with a size tag. We currently have one photo (5kg bag); it is
- * reused for every size with a clear size label until each bag is photographed.
- */
+/** Product photo for a bag size, with a size tag. Falls back to the default bag photo. */
 export function BagImage({
+  src,
   sizeKg,
   priority = false,
   className = "",
   sizes = "(min-width: 768px) 40vw, 90vw",
 }: {
+  src?: string | null;
   sizeKg?: number;
   priority?: boolean;
   className?: string;
@@ -19,7 +18,7 @@ export function BagImage({
   return (
     <div className={`relative overflow-hidden rounded-3xl bg-white ${className}`}>
       <Image
-        src={site.productImage}
+        src={src || site.productImage}
         alt={`${site.name}${sizeKg ? ` ${sizeKg}kg bag` : " bag"}`}
         fill
         priority={priority}

@@ -153,6 +153,7 @@ model Variant {
   stockQty            Int           @default(0)
   reservedQty         Int           @default(0)
   isSampleSize        Boolean       @default(false) // 1kg is the free-sample size
+  imageUrl            String?       // product photo for this size; falls back to the 5kg photo
   active              Boolean       @default(true)
   updatedAt           DateTime      @updatedAt
   priceChanges        PriceChange[]
@@ -397,16 +398,56 @@ model ReturnClaim {
   orderId            String
   order              Order       @relation("ClaimOriginalOrder", fields: [orderId], references: [id])
   orderItemId        String
+  qty                Int         @default(1) // number of bags affected
   userId             String
   user               User        @relation(fields: [userId], references: [id])
   reason             ClaimReason
   description        String
-  photoUrls          String[]
+  photos             ClaimPhoto[]
   status             ClaimStatus @default(SUBMITTED)
   resolutionNote     String?
   replacementOrderId String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}
+
+/// Photos attached to a replacement claim. Re-encoded with sharp (metadata
+/// stripped) and stored in the database so no extra file storage is needed.
+model ClaimPhoto {
+  id        String       @id @default(cuid())
+  claimId   String
+  claim     ReturnClaim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  mime      String
+  data      Bytes
+  width     Int
+  height    Int
+  createdAt DateTime     @default(now())
+}
+
+/// One free sample per account AND per delivery address.
+model SampleClaim {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  addressKey  String   @unique
+  orderId     String   @unique
+  createdAt   DateTime @default(now())
+}
+
+/// Promotions shown on /promotions, managed by staff in /ops/promotions.
+model Promotion {
+  id          String    @id @default(cuid())
+  title       String
+  body        String
+  badge       String?
+  couponCode  String?
+  startsAt    DateTime  @default(now())
+  endsAt      DateTime?
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
 }
 
 // ─── Infrastructure ─────────────────────────────────────────────────────────

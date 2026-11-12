@@ -69,7 +69,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
       <ul className="card divide-y divide-border" aria-busy={pending}>
         {(data?.lines ?? []).map((l) => (
           <li key={l.variantId} className="flex gap-4 p-4">
-            <BagThumb sizeKg={l.sizeKg} />
+            <BagThumb sizeKg={l.sizeKg} src={l.imageUrl} />
             <div className="flex-1 min-w-0">
               <div className="flex justify-between gap-3">
                 <div>
@@ -116,6 +116,17 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
             className="field mt-0 uppercase" autoCapitalize="characters" />
           <button className="rounded-xl border border-brand px-4 font-semibold text-brand hover:bg-brand-soft">Apply</button>
         </form>
+        {data && data.myCoupons.length > 0 && !coupon && (
+          <div className="-mt-3 flex flex-wrap gap-2 text-sm">
+            <span className="text-muted">Your coupons:</span>
+            {data.myCoupons.map((c) => (
+              <button key={c.code} type="button" onClick={() => { setCouponInput(c.code); setCoupon(c.code); }}
+                className="rounded-full border border-dashed border-brand px-2.5 py-0.5 font-semibold text-brand hover:bg-brand-soft">
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
         {coupon && data?.couponMessage && <p className="-mt-3 text-sm text-danger">{data.couponMessage}</p>}
         {coupon && data && !data.couponMessage && data.quote && data.quote.discountKobo > 0 && (
           <p className="-mt-3 text-sm text-success">Coupon {coupon} applied.</p>

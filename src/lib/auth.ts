@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import type { Role, User, SellerProfile } from "@prisma/client";
 import { db } from "./db";
@@ -40,6 +41,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     where: { tokenHash: sha256(token) },
     include: { user: { include: { sellerProfile: true } } },
   });
+  await connection(); // expiry depends on the current time: request-time only
   if (!session || session.expiresAt < new Date()) return null;
   return session.user;
 });

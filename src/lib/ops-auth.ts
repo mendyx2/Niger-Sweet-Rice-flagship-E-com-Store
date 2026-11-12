@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 
 /**
@@ -59,6 +60,7 @@ export async function isOpsSession(): Promise<boolean> {
   const sig = raw.slice(i + 1);
   if (!safeEqual(sig, sign(payload))) return false;
   const exp = Number(payload.split(".")[1]);
+  await connection(); // the expiry check must run per request, never during prerender/prefetch
   return Number.isFinite(exp) && exp > Date.now() / 1000;
 }
 

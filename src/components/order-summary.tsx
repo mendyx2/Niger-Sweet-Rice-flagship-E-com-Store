@@ -18,7 +18,7 @@ export function OrderSummary({
         </dd>
       </div>
       <div className={`${row} border-t border-border pt-3 text-base`}>
-        <dt className="font-semibold">Total</dt>
+        <dt className="font-semibold">{zoneChosen ? "Total" : "Total before delivery"}</dt>
         <dd className="font-bold text-lg tabular-nums">{formatNaira(quote?.totalKobo ?? subtotalKobo)}</dd>
       </div>
     </dl>

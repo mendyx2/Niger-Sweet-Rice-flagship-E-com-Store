@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { applyAsSeller, updateProfile } from "./actions";
+import { applyAsSeller, redeem, updateProfile } from "./actions";
 
 export function ProfileForm({ name, email }: { name: string; email: string }) {
   const [state, action, pending] = useActionState(updateProfile, null);
@@ -46,6 +46,30 @@ export function SellerForm({ name, defaults }: { name: string; defaults?: { busi
       </label>
       {state && !state.ok && <p role="alert" className="text-sm text-danger">{state.message}</p>}
       <button disabled={pending} className="btn-cta w-full">{pending ? "Sending…" : "Apply to sell"}</button>
+    </form>
+  );
+}
+
+export function RedeemForm({ tiers, balance }: { tiers: { points: number; label: string; minOrder: string }[]; balance: number }) {
+  const [state, action, pending] = useActionState(redeem, null);
+  return (
+    <form action={action}>
+      <ul className="grid gap-3 sm:grid-cols-3">
+        {tiers.map((t) => {
+          const affordable = balance >= t.points;
+          return (
+            <li key={t.points} className={`rounded-2xl border p-4 ${affordable ? "border-brand bg-surface" : "border-border bg-background"}`}>
+              <p className="font-display text-2xl font-bold text-brand">{t.label}</p>
+              <p className="text-sm text-muted">{t.points.toLocaleString("en-NG")} points · orders over {t.minOrder}</p>
+              <button name="points" value={t.points} disabled={!affordable || pending}
+                className={`mt-3 w-full ${affordable ? "btn-cta py-2" : "rounded-full border border-border py-2 text-sm text-muted"}`}>
+                {affordable ? "Get coupon" : `${(t.points - balance).toLocaleString("en-NG")} more points`}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {state && <p role="status" className={`mt-3 text-sm font-medium ${state.ok ? "text-success" : "text-danger"}`}>{state.message}</p>}
     </form>
   );
 }

@@ -45,3 +45,15 @@ describe("replacement window", () => {
     expect(canClaimReplacement(null)).toBe(false);
   });
 });
+
+import { sampleAddressKey } from "@/lib/samples";
+describe("free sample address matching", () => {
+  it("treats spelling variants of the same address as one", () => {
+    expect(sampleAddressKey("z", "12, Aminu Kano Crescent")).toBe(sampleAddressKey("z", "12 aminu kano cres."));
+    expect(sampleAddressKey("z", "5 Ahmadu Bello Street")).toBe(sampleAddressKey("z", "5 ahmadu bello st"));
+  });
+  it("keeps different addresses and areas apart", () => {
+    expect(sampleAddressKey("z", "12 Aminu Kano Cres")).not.toBe(sampleAddressKey("z", "14 Aminu Kano Cres"));
+    expect(sampleAddressKey("a", "12 Aminu Kano Cres")).not.toBe(sampleAddressKey("b", "12 Aminu Kano Cres"));
+  });
+});

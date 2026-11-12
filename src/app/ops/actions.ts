@@ -4,11 +4,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { TAGS } from "@/lib/catalogue";
 import { nairaToKobo } from "@/lib/money";
 import { checkOpsPassword, endOpsSession, requireOps, startOpsSession } from "@/lib/ops-auth";
-import { cancelUnpaidOrder } from "@/lib/orders";
+import { CheckoutError, cancelUnpaidOrder, createPendingOrder, markOrderPaid } from "@/lib/orders";
 import { notifyStatus } from "@/lib/notify";
 import { NEXT_STATUSES } from "@/lib/status-text";
 import { sendSms } from "@/lib/sms";
@@ -211,6 +212,9 @@ export async function updateOrderStatus(_prev: FormState, formData: FormData): P
         });
       }
       await tx.orderStatusEvent.create({ data: { orderId: order.id, status, note: note || null, actor } });
+      if (status === "DELIVERED" && order.type === "REPLACEMENT") {
+        await tx.returnClaim.updateMany({ where: { replacementOrderId: order.id }, data: { status: "COMPLETED" } });
+      }
       await tx.auditLog.create({
         data: { actor, action: "order.status", entity: "Order", entityId: order.id, before: { status: order.status }, after: { status } },
       });
@@ -244,5 +248,173 @@ export async function reviewSeller(formData: FormData) {
       ? `${site.name}: your seller account for ${profile.businessName} is approved. Wholesale prices now show when you sign in.`
       : `${site.name}: we couldn't approve your seller application for ${profile.businessName}. Please call us for details.`,
   );
+  refresh();
+}
+
+// ─── Replacement claims ─────────────────────────────────────────────────────
+
+export async function reviewClaim(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireOps();
+  const claimId = String(formData.get("claimId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
+
+  const claim = await db.returnClaim.findUnique({ where: { id: claimId }, include: { order: { include: { items: true, zone: true } } } });
+  if (!claim || !["SUBMITTED", "UNDER_REVIEW"].includes(claim.status)) return { ok: false, message: "This claim has already been handled." };
+  const order = claim.order;
+
+  if (decision === "reject") {
+    if (!note) return { ok: false, message: "Please add a short reason for the customer." };
+    await db.$transaction([
+      db.returnClaim.update({ where: { id: claim.id }, data: { status: "REJECTED", resolutionNote: note } }),
+      db.auditLog.create({ data: { actor, action: "claim.rejected", entity: "ReturnClaim", entityId: claim.id, after: { note } } }),
+    ]);
+    await sendSms(order.contactPhone, `${site.name}: we couldn't approve your replacement request for order ${order.number}. ${note}`);
+    refresh();
+    return { ok: true, message: "Claim rejected and customer notified." };
+  }
+
+  // Approve: free replacement order (same address), stock taken now, collection of the damaged bag noted for the rider.
+  const item = order.items.find((i) => i.id === claim.orderItemId);
+  if (!item) return { ok: false, message: "Order item not found." };
+  let replacement;
+  try {
+    replacement = await createPendingOrder({
+      type: "REPLACEMENT",
+      parentOrderId: order.id,
+      userId: claim.userId,
+      customerName: order.customerName,
+      contactPhone: order.contactPhone,
+      contactEmail: order.contactEmail,
+      zoneId: order.zoneId,
+      address: order.zone.kind === "PICKUP" ? null : (order.addressSnapshot as { street: string; landmark: string | null; zoneName: string }),
+      note: `Replacement for ${order.number}. COLLECT ${claim.qty} damaged ${item.sizeKg}kg bag(s).`,
+      couponId: null,
+      referrerId: null,
+      lines: [{ variantId: item.variantId, qty: claim.qty, unitPriceKobo: 0, sizeKg: item.sizeKg }],
+      subtotalKobo: 0,
+      discountKobo: 0,
+      deliveryFeeKobo: 0,
+      totalKobo: 0,
+    });
+  } catch (e) {
+    if (e instanceof CheckoutError) return { ok: false, message: `Not enough ${item.sizeKg}kg stock for the replacement. Update stock first.` };
+    throw e;
+  }
+  await markOrderPaid(replacement.number, { reference: `${replacement.number}_repl`, amountKobo: 0, currency: "NGN", source: actor });
+  await db.$transaction([
+    db.returnClaim.update({ where: { id: claim.id }, data: { status: "REPLACEMENT_SCHEDULED", resolutionNote: note, replacementOrderId: replacement.id } }),
+    db.auditLog.create({ data: { actor, action: "claim.approved", entity: "ReturnClaim", entityId: claim.id, after: { replacement: replacement.number } } }),
+  ]);
+  await sendSms(
+    order.contactPhone,
+    `${site.name}: your replacement for order ${order.number} is approved. We'll bring ${claim.qty} new ${item.sizeKg}kg bag(s) and collect the damaged one(s). Track: ${replacement.number}`,
+  );
+  refresh();
+  return { ok: true, message: `Approved. Replacement order ${replacement.number} is in the Orders list.` };
+}
+
+export async function reviewAffiliate(formData: FormData) {
+  const actor = await requireOps();
+  const userId = String(formData.get("userId") ?? "");
+  const decision = formData.get("decision") === "approve" ? "APPROVED" : "REJECTED";
+  const profile = await db.affiliateProfile.findUnique({ where: { userId }, include: { user: true } });
+  if (!profile) return;
+  const roles = decision === "APPROVED"
+    ? [...new Set([...profile.user.roles, "AFFILIATE" as const])]
+    : profile.user.roles.filter((r) => r !== "AFFILIATE");
+  await db.$transaction([
+    db.affiliateProfile.update({ where: { userId }, data: { status: decision } }),
+    db.user.update({ where: { id: userId }, data: { roles } }),
+    db.auditLog.create({ data: { actor, action: `affiliate.${decision.toLowerCase()}`, entity: "AffiliateProfile", entityId: userId } }),
+  ]);
+  await sendSms(
+    profile.user.phone,
+    decision === "APPROVED"
+      ? `${site.name}: you're now an affiliate! Your links are in My account. Share them to earn points.`
+      : `${site.name}: we couldn't approve your affiliate application this time.`,
+  );
+  refresh();
+}
+
+// ─── Promotions & coupon codes ──────────────────────────────────────────────
+
+const promoInput = z.object({
+  title: z.string().trim().min(3, "Add a title.").max(80),
+  body: z.string().trim().min(5, "Add a short description.").max(400),
+  badge: z.string().trim().max(24).optional(),
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional(),
+  couponCode: z.string().trim().toUpperCase().max(20).regex(/^[A-Z0-9-]*$/, "Coupon codes can only use letters, numbers and dashes.").optional(),
+  couponType: z.enum(["PERCENT", "FIXED"]).optional(),
+  couponValue: z.string().optional(),
+  couponMinOrder: z.string().optional(),
+  couponMaxDiscount: z.string().optional(),
+  couponMaxUses: z.string().optional(),
+});
+
+const lagosDate = (s: string | undefined, endOfDay = false) => {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return new Date(`${s}T${endOfDay ? "23:59:59" : "00:00:00"}+01:00`); // Africa/Lagos is UTC+1, no DST
+};
+
+export async function createPromotion(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireOps();
+  const parsed = promoInput.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  const f = parsed.data;
+  const startsAt = lagosDate(f.startsAt) ?? new Date();
+  const endsAt = lagosDate(f.endsAt, true);
+  if (endsAt && endsAt <= startsAt) return { ok: false, message: "The end date must be after the start date." };
+
+  let couponData: Prisma.CouponCreateInput | null = null;
+  if (f.couponCode) {
+    const value = f.couponType === "PERCENT" ? Number(f.couponValue) : nairaToKobo(f.couponValue ?? "");
+    if (f.couponType === "PERCENT" && !(Number.isInteger(value) && value! >= 1 && value! <= 90)) {
+      return { ok: false, message: "Percentage discount must be a whole number from 1 to 90." };
+    }
+    if (f.couponType !== "PERCENT" && !(value && value > 0)) return { ok: false, message: "Enter the naira amount off." };
+    const minOrder = nairaToKobo(f.couponMinOrder ?? "") ?? 0;
+    const maxDiscount = nairaToKobo(f.couponMaxDiscount ?? "");
+    const maxUses = f.couponMaxUses ? Number(f.couponMaxUses) : 100_000;
+    if ([minOrder, maxDiscount ?? 0].some(Number.isNaN) || !Number.isInteger(maxUses) || maxUses < 1) {
+      return { ok: false, message: "Please check the coupon numbers." };
+    }
+    if (await db.coupon.findUnique({ where: { code: f.couponCode } })) return { ok: false, message: "That coupon code already exists." };
+    couponData = {
+      code: f.couponCode, type: f.couponType ?? "FIXED", value: value!, minOrderKobo: minOrder,
+      maxDiscountKobo: maxDiscount, maxUses, source: "PROMO", startsAt, expiresAt: endsAt,
+    };
+  }
+
+  await db.$transaction(async (tx) => {
+    if (couponData) await tx.coupon.create({ data: couponData });
+    const promo = await tx.promotion.create({
+      data: { title: f.title, body: f.body, badge: f.badge || null, couponCode: f.couponCode || null, startsAt, endsAt },
+    });
+    await tx.auditLog.create({ data: { actor, action: "promotion.create", entity: "Promotion", entityId: promo.id, after: { ...f } } });
+  });
+  updateTag(TAGS.promotions);
+  refresh();
+  return { ok: true, message: "Promotion published." };
+}
+
+export async function togglePromotion(formData: FormData) {
+  const actor = await requireOps();
+  const id = String(formData.get("id") ?? "");
+  const promo = await db.promotion.findUnique({ where: { id } });
+  if (!promo) return;
+  await db.$transaction(async (tx) => {
+    await tx.promotion.update({ where: { id }, data: { active: !promo.active } });
+    // Pausing a promotion also stops its coupon code from working.
+    if (promo.couponCode) {
+      await tx.coupon.updateMany({
+        where: { code: promo.couponCode },
+        data: promo.active ? { expiresAt: new Date() } : { expiresAt: promo.endsAt },
+      });
+    }
+    await tx.auditLog.create({ data: { actor, action: promo.active ? "promotion.pause" : "promotion.resume", entity: "Promotion", entityId: id } });
+  });
+  updateTag(TAGS.promotions);
   refresh();
 }

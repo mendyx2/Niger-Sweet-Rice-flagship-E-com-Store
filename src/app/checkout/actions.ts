@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { requireUser, isApprovedSeller } from "@/lib/auth";
 import { priceCart, couponMessage } from "@/lib/checkout-data";
@@ -55,6 +56,11 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   if (!isPickup && (!f.street || f.street.length < 5)) errors.push("Please enter your delivery address.");
   if (errors.length) return { ok: false, errors };
 
+  // Affiliate attribution (30-day cookie from /a/CODE). Affiliates can't earn on their own orders.
+  const affCode = (await cookies()).get("nsr_aff")?.value;
+  const affiliate = affCode ? await db.affiliateProfile.findUnique({ where: { code: affCode } }) : null;
+  const affiliateId = affiliate?.status === "APPROVED" && affiliate.userId !== user.id ? affiliate.userId : null;
+
   const coupon = priced.couponCode && q.discountKobo > 0 ? await db.coupon.findUnique({ where: { code: priced.couponCode } }) : null;
 
   // Keep the name on the account for next time.
@@ -72,6 +78,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
       note: f.note || null,
       couponId: coupon?.id ?? null,
       referrerId: user.referredById,
+      affiliateId,
       lines: q.lines.map((l) => ({ variantId: l.variantId, qty: l.qty, unitPriceKobo: l.unitPriceKobo, sizeKg: l.sizeKg })),
       subtotalKobo: q.subtotalKobo,
       discountKobo: q.discountKobo,

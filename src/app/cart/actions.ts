@@ -5,6 +5,7 @@ import { priceCart, couponMessage } from "@/lib/checkout-data";
 import { describeIssue } from "@/lib/pricing";
 import { formatNaira } from "@/lib/money";
 import { getCurrentUser, isApprovedSeller } from "@/lib/auth";
+import { availableCoupons } from "@/lib/redeem";
 
 const input = z.object({
   lines: z.array(z.object({ variantId: z.string().max(40), qty: z.number().int().min(1).max(100) })).max(20),
@@ -22,8 +23,10 @@ export async function getCartQuote(raw: unknown) {
     userId: user?.id,
     wholesale: user ? isApprovedSeller(user) : false,
   });
+  const mine = user ? await availableCoupons(user.id) : [];
   return {
     ...r,
+    myCoupons: mine.map((c) => ({ code: c.code, label: c.type === "FIXED" ? `${formatNaira(c.value)} off` : `${c.value}% off` })),
     issues: r.quote?.issues.map((i) => describeIssue(i, formatNaira)) ?? [],
     couponMessage: couponMessage(r.couponIssue),
   };

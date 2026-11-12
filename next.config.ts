@@ -30,6 +30,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    // Bag-replacement claims upload up to 5 photos (shrunk in the browser first).
+    serverActions: { bodySizeLimit: "12mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

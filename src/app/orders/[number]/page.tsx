@@ -10,6 +10,16 @@ import { OrderTimeline } from "@/components/order-timeline";
 import { StatusPill } from "@/components/order-status";
 import { BagThumb } from "@/components/bag-thumb";
 import { ClearCart, PayNowButton } from "./client";
+import { canClaimReplacement } from "@/lib/returns";
+
+const CLAIM_STATUS: Record<string, string> = {
+  SUBMITTED: "received, we'll review it shortly",
+  UNDER_REVIEW: "being reviewed",
+  APPROVED: "approved",
+  REPLACEMENT_SCHEDULED: "approved, replacement on the way",
+  COMPLETED: "completed",
+  REJECTED: "not approved",
+};
 
 const isWithinMinutes = (d: Date | null, mins: number) => !!d && Date.now() - d.getTime() < mins * 60_000;
 const isFuture = (d: Date | null) => !!d && d.getTime() > Date.now();
@@ -31,7 +41,7 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
   const user = await requireUser(`/orders/${number}`);
   const order = await db.order.findUnique({
     where: { number },
-    include: { items: true, events: { orderBy: { createdAt: "asc" } }, zone: true, shipment: true },
+    include: { items: { include: { variant: true } }, events: { orderBy: { createdAt: "asc" } }, zone: true, shipment: true, returnClaims: true },
   });
   if (!order || order.userId !== user.id) notFound();
 
@@ -87,7 +97,7 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
             <ul className="mt-3 space-y-3">
               {order.items.map((i) => (
                 <li key={i.id} className="flex items-center gap-3 text-sm">
-                  <BagThumb sizeKg={i.sizeKg} />
+                  <BagThumb sizeKg={i.sizeKg} src={i.variant.imageUrl} />
                   <span className="flex-1">{i.qty} × {i.sizeKg}kg</span>
                   <span className="tabular-nums">{formatNaira(i.unitPriceKobo * i.qty)}</span>
                 </li>
@@ -109,8 +119,21 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
             )}
             <p className="mt-2 text-muted">{order.customerName} · {formatNgPhone(order.contactPhone)}</p>
           </section>
-          {order.status === "DELIVERED" && (
-            <Link href="/returns-policy" className="block text-sm text-brand underline">Problem with a bag? Request a replacement</Link>
+          {order.returnClaims.length > 0 && (
+            <section className="card p-5 text-sm">
+              <h3 className="font-semibold">Replacement requests</h3>
+              <ul className="mt-2 space-y-1">
+                {order.returnClaims.map((c) => (
+                  <li key={c.id}>
+                    {c.qty} bag(s): <strong>{CLAIM_STATUS[c.status]}</strong>
+                    {c.resolutionNote && <span className="block text-muted">{c.resolutionNote}</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {order.status === "DELIVERED" && order.type !== "SAMPLE" && canClaimReplacement(order.deliveredAt) && (
+            <Link href={`/orders/${order.number}/replace`} className="btn-outline w-full">Problem with a bag? Request a replacement</Link>
           )}
         </aside>
       </div>

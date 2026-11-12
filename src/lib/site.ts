@@ -17,5 +17,6 @@ export const site = {
   lng: process.env.NEXT_PUBLIC_STORE_LNG ?? "",
   hours: "Mo-Sa 08:00-19:00",
   hoursLabel: "Monday – Saturday, 8am – 7pm",
-  productImage: "/images/sweet-rice-bag.jpg",
+  /** Default product photo (5kg bag); sizes without their own photo use it. */
+  productImage: "/images/sweet-rice-5kg.jpg",
 };

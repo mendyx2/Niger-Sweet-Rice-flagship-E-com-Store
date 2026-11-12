@@ -4,6 +4,7 @@ import { z } from "zod";
 import { refresh } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { newCouponCode, redeemPoints } from "@/lib/redeem";
 
 export type FormState = { ok: boolean; message: string } | null;
 
@@ -49,4 +50,34 @@ export async function applyAsSeller(_prev: FormState, formData: FormData): Promi
   ]);
   refresh();
   return { ok: true, message: "Application received. We'll review it and text you when it's approved." };
+}
+
+export async function redeem(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const points = Number(formData.get("points"));
+  if (!Number.isInteger(points)) return { ok: false, message: "Invalid choice." };
+  const r = await redeemPoints(user.id, points);
+  if (!r.ok) return { ok: false, message: r.error === "NOT_ENOUGH_POINTS" ? "You don't have enough points for that yet." : "Invalid choice." };
+  refresh();
+  return { ok: true, message: `Your coupon ${r.code} is ready. Use it at checkout.` };
+}
+
+export async function applyAsAffiliate(): Promise<void> {
+  const user = await requireUser();
+  const existing = await db.affiliateProfile.findUnique({ where: { userId: user.id } });
+  if (existing && existing.status !== "REJECTED") return;
+  for (let i = 0; i < 5; i++) {
+    const code = "A" + newCouponCode("X").slice(2, 8);
+    try {
+      await db.affiliateProfile.upsert({
+        where: { userId: user.id },
+        create: { userId: user.id, code },
+        update: { status: "PENDING" },
+      });
+      break;
+    } catch (e) {
+      if ((e as { code?: string }).code !== "P2002") throw e;
+    }
+  }
+  refresh();
 }

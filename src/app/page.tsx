@@ -101,7 +101,7 @@ export default async function Home() {
               <li key={v.id}>
                 <Link href={`/p/${rice.slug}?size=${v.sizeKg}`} className="card group block p-3 hover:border-brand hover:shadow-md transition">
                   <div className="relative">
-                    <BagImage className="aspect-square bg-background" sizes="(min-width: 1024px) 260px, 45vw" />
+                    <BagImage src={v.imageUrl} className="aspect-square bg-background" sizes="(min-width: 1024px) 260px, 45vw" />
                     <span className="absolute right-2 top-2"><SaleBadge kobo={v.retailPriceKobo} compareAt={v.compareAtPriceKobo} /></span>
                   </div>
                   <div className="px-2 pb-2 pt-3">
@@ -131,7 +131,7 @@ export default async function Home() {
           <p className="mt-2 text-foreground/80">
             Not sure yet? Taste it first. The rice is free; you only pay delivery, or pick it up at the store.
           </p>
-          <Link href="/promotions#sample" className="mt-5 btn-outline">Learn more</Link>
+          <Link href="/samples" className="mt-5 btn-outline">Request a sample</Link>
         </div>
       </section>
     </>

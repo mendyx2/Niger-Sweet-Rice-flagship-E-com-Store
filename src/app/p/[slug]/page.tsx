@@ -5,6 +5,7 @@ import { getProduct, getProducts } from "@/lib/catalogue";
 import { site } from "@/lib/site";
 import { JsonLd } from "@/components/json-ld";
 import { SizePicker } from "./size-picker";
+import { ProductPhoto } from "./product-photo";
 import { BagImage } from "@/components/bag-image";
 import { ShieldIcon, StoreIcon, TruckIcon } from "@/components/icons";
 import Link from "next/link";
@@ -63,7 +64,7 @@ async function Product({ params }: Pick<PageProps<"/p/[slug]">, "params">) {
             name: p.name,
             description: p.description,
             brand: { "@type": "Brand", name: site.name },
-            image: `${site.url}${site.productImage}`,
+            image: [...new Set(p.variants.map((v) => `${site.url}${v.imageUrl ?? site.productImage}`))],
             offers: priced.map((v) => ({
               "@type": "Offer",
               sku: v.sku,
@@ -78,7 +79,9 @@ async function Product({ params }: Pick<PageProps<"/p/[slug]">, "params">) {
         />
       )}
       <div className="md:sticky md:top-24 self-start">
-        <BagImage priority className="aspect-square border border-border" />
+        <Suspense fallback={<BagImage priority src={p.variants[0]?.imageUrl} className="aspect-square border border-border" />}>
+          <ProductPhoto variants={p.variants.map((v) => ({ sizeKg: v.sizeKg, imageUrl: v.imageUrl }))} />
+        </Suspense>
       </div>
       <div>
         <nav aria-label="Breadcrumb" className="text-sm text-muted">

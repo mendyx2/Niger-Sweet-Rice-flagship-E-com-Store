@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { db } from "./db";
 
 /** Cache tags. Staff edits in /ops call updateTag() with these. */
-export const TAGS = { catalogue: "catalogue", zones: "zones" } as const;
+export const TAGS = { catalogue: "catalogue", zones: "zones", promotions: "promotions" } as const;
 
 export type CatalogueVariant = {
   id: string;
@@ -13,6 +13,7 @@ export type CatalogueVariant = {
   compareAtPriceKobo: number | null;
   available: number;
   isSampleSize: boolean;
+  imageUrl: string | null;
 };
 
 export type CatalogueProduct = {
@@ -49,6 +50,7 @@ export async function getProducts(): Promise<CatalogueProduct[]> {
       compareAtPriceKobo: v.compareAtPriceKobo,
       available: Math.max(v.stockQty - v.reservedQty, 0),
       isSampleSize: v.isSampleSize,
+      imageUrl: v.imageUrl,
     })),
   }));
 }
@@ -69,4 +71,17 @@ export async function getZones() {
 export function fromPrice(p: CatalogueProduct): number | null {
   const prices = p.variants.map((v) => v.retailPriceKobo).filter((x): x is number => x != null);
   return prices.length ? Math.min(...prices) : null;
+}
+
+/** Live promotions for /promotions and the home page. Re-checked every few minutes so start/end dates apply on time. */
+export async function getActivePromotions() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(TAGS.promotions);
+  const now = new Date();
+  return db.promotion.findMany({
+    where: { active: true, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    take: 12,
+  });
 }

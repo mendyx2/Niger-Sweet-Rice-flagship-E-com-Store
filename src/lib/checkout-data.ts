@@ -7,6 +7,7 @@ export type CartViewLine = {
   productName: string;
   productSlug: string;
   sizeKg: number;
+  imageUrl: string | null;
   qty: number;
   unitPriceKobo: number | null;
   available: number;
@@ -22,6 +23,9 @@ export type CartQuote = {
 };
 
 const MAX_LINES = 20;
+const NO_ZONE: QuoteZone = {
+  id: "", name: "", kind: "PICKUP", baseFeeKobo: 0, perKgFeeKobo: 0, minOrderKg: null, minOrderKobo: null, active: true,
+};
 
 /** Loads fresh prices/stock and prices the cart. Used by the cart, checkout and order creation. */
 export async function priceCart(opts: {
@@ -50,6 +54,7 @@ export async function priceCart(opts: {
         productName: v.product.name,
         productSlug: v.product.slug,
         sizeKg: v.sizeKg,
+        imageUrl: v.imageUrl,
         qty: l.qty,
         unitPriceKobo: price,
         available: Math.max(v.stockQty - v.reservedQty, 0),
@@ -61,12 +66,13 @@ export async function priceCart(opts: {
   const code = opts.couponCode?.trim().toUpperCase() || null;
   const coupon = code ? await db.coupon.findUnique({ where: { code } }) : null;
 
-  if (!zone) return { lines: view, quote: null, zone: null, couponCode: code, couponIssue: null };
+  // Before an area is chosen, price the goods and discount only (no delivery fee or minimum order yet).
+  const pricingZone = zone ?? NO_ZONE;
 
   const q = quote({
     lines: lines.filter((l) => byId.has(l.variantId)),
     variants: variants.map((v) => ({ ...v, active: v.active && v.product.active })),
-    zone,
+    zone: pricingZone,
     coupon,
     wholesale: opts.wholesale,
     userId: opts.userId,
@@ -74,7 +80,7 @@ export async function priceCart(opts: {
   return {
     lines: view,
     quote: q,
-    zone: { id: zone.id, name: zone.name, kind: zone.kind, terms: zone.terms },
+    zone: zone ? { id: zone.id, name: zone.name, kind: zone.kind, terms: zone.terms } : null,
     couponCode: code,
     couponIssue: code && !coupon ? "COUPON_NOT_FOUND" : q.couponIssue,
   };

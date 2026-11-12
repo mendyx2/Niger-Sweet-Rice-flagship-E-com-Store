@@ -20,6 +20,8 @@ export function newPaymentReference(orderNumber: string): string {
 export class CheckoutError extends Error {}
 
 type CreateOrderInput = {
+  type?: "STANDARD" | "SAMPLE" | "REPLACEMENT";
+  parentOrderId?: string | null;
   userId: string;
   customerName: string;
   contactPhone: string;
@@ -29,6 +31,7 @@ type CreateOrderInput = {
   note: string | null;
   couponId: string | null;
   referrerId: string | null;
+  affiliateId?: string | null;
   lines: { variantId: string; qty: number; unitPriceKobo: number; sizeKg: number }[];
   subtotalKobo: number;
   discountKobo: number;
@@ -61,6 +64,8 @@ export async function createPendingOrder(input: CreateOrderInput) {
         const order = await tx.order.create({
           data: {
             number: newOrderNumber(),
+            type: input.type ?? "STANDARD",
+            parentOrderId: input.parentOrderId ?? null,
             userId: input.userId,
             customerName: input.customerName,
             contactPhone: input.contactPhone,
@@ -70,6 +75,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
             note: input.note,
             couponId: input.couponId,
             referrerId: input.referrerId,
+            affiliateId: input.affiliateId ?? null,
             subtotalKobo: input.subtotalKobo,
             discountKobo: input.discountKobo,
             deliveryFeeKobo: input.deliveryFeeKobo,
@@ -100,6 +106,8 @@ export async function cancelUnpaidOrder(orderId: string, note: string) {
       await tx.$executeRaw`UPDATE "Variant" SET "reservedQty" = GREATEST("reservedQty" - ${i.qty}, 0) WHERE "id" = ${i.variantId}`;
     }
     if (order.couponId) await tx.$executeRaw`UPDATE "Coupon" SET "usedCount" = GREATEST("usedCount" - 1, 0) WHERE "id" = ${order.couponId}`;
+    // An unpaid free-sample request doesn't use up the customer's one sample.
+    if (order.type === "SAMPLE") await tx.sampleClaim.deleteMany({ where: { orderId } });
     await tx.orderStatusEvent.create({ data: { orderId, status: "CANCELLED", note } });
     return true;
   });

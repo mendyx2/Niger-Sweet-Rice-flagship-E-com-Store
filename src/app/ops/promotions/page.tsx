@@ -1,0 +1,69 @@
+import { Suspense } from "react";
+import { db } from "@/lib/db";
+import { requireOps } from "@/lib/ops-auth";
+import { formatNaira } from "@/lib/money";
+import { OpsNav } from "../ops-nav";
+import { togglePromotion } from "../actions";
+import { PromotionForm } from "./promotion-form";
+
+export default function PromotionsOpsPage() {
+  return <Suspense fallback={<p className="text-muted">Loading…</p>}><Promotions /></Suspense>;
+}
+
+const d = (x: Date | null) => (x ? x.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Lagos" }) : "no end date");
+
+async function Promotions() {
+  await requireOps();
+  const [promos, coupons] = await Promise.all([
+    db.promotion.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    db.coupon.findMany({ where: { source: "PROMO" }, orderBy: { createdAt: "desc" }, take: 100 }),
+  ]);
+  const byCode = new Map(coupons.map((c) => [c.code, c]));
+  return (
+    <>
+      <OpsNav current="promotions" />
+      <h1 className="font-display text-2xl font-bold">Promotions</h1>
+      <p className="text-sm text-muted mt-1">
+        Promotions appear on the Promotions page. Add a coupon code to give a discount at checkout. To show a &ldquo;was&rdquo; price on a bag instead, use the Prices page.
+      </p>
+      <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_420px] items-start">
+        <ul className="space-y-3">
+          {promos.length === 0 && <li className="text-muted">No promotions yet.</li>}
+          {promos.map((p) => {
+            const c = p.couponCode ? byCode.get(p.couponCode) : null;
+            const now = new Date();
+            const live = p.active && p.startsAt <= now && (!p.endsAt || p.endsAt > now);
+            return (
+              <li key={p.id} className="card p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold">{p.title} {p.badge && <span className="ml-1 rounded-full bg-promo px-2 py-0.5 text-xs text-white">{p.badge}</span>}</p>
+                    <p className="text-sm text-muted">{d(p.startsAt)} → {d(p.endsAt)}</p>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${live ? "bg-success/15 text-success" : "bg-border text-muted"}`}>
+                    {live ? "Live" : p.active ? "Scheduled / ended" : "Paused"}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm">{p.body}</p>
+                {c && (
+                  <p className="mt-2 text-sm">
+                    Code <span className="font-mono font-bold">{c.code}</span>: {c.type === "PERCENT" ? `${c.value}% off` : `${formatNaira(c.value)} off`}
+                    {c.minOrderKobo ? `, min ${formatNaira(c.minOrderKobo)}` : ""} · used {c.usedCount}/{c.maxUses >= 100_000 ? "∞" : c.maxUses}
+                  </p>
+                )}
+                <form action={togglePromotion} className="mt-3">
+                  <input type="hidden" name="id" value={p.id} />
+                  <button className="text-sm underline">{p.active ? "Pause" : "Resume"}</button>
+                </form>
+              </li>
+            );
+          })}
+        </ul>
+        <section className="card p-5">
+          <h2 className="font-semibold text-lg">New promotion</h2>
+          <PromotionForm />
+        </section>
+      </div>
+    </>
+  );
+}

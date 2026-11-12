@@ -374,6 +374,16 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 
 **Needed from the business to go live:** Paystack account (secret key + webhook), Termii account (SMS), domain, real store address/phone, photos of each bag size, confirmed delivery fees
 
-**Next: Phase 4**
-- Points → coupon redemption screen, affiliate links and dashboard, promotions managed by staff, free-sample ordering (pay delivery only)
-- Bag replacement claims with photo upload
+**Done (Phase 4), 12 Nov 2026**
+- Each bag size shows its own photo (5kg and 1kg supplied; 50kg and 25kg fall back to the 5kg photo)
+- Points → coupons: buyers swap confirmed points for single-use personal coupons (₦2,000 / ₦5,000 / ₦15,000); saved coupons appear as one-tap buttons in the cart
+- Free 1kg sample: rice ₦0, customer pays delivery (pickup free), one per account and per address, Abuja and pickup only
+- Bag replacement claims: within 48h of delivery, 1–5 photos (shrunk on the phone, re-encoded on the server, location data removed, visible only to the customer and staff); staff approval creates a free replacement order with a "collect damaged bag" note; points stay on hold while a claim is open
+- Affiliates: apply from My account, staff approve, per-size share links, 30-day attribution, dashboard (clicks, orders, sales, points); 2 points per ₦100, coupons only
+- Promotions: staff publish promotions with start/end dates and optional coupon codes (% or ₦ off, minimum spend, cap, usage limit); pausing a promotion also stops its code
+- Cart shows discounts before a delivery area is chosen
+
+**Next: Phase 5 (analytics, hardening) and Phase 6 (local SEO launch)**
+- GA4 / Meta Pixel with cookie consent, owner reports
+- Area landing pages for local SEO, Google Business Profile
+- Move rate limits to Redis before running more than one server; points expiry after 12 months; follow-up coupon after a sample is delivered

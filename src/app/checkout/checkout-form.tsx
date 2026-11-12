@@ -113,7 +113,7 @@ export function CheckoutForm({
         <ul className="space-y-3">
           {data?.lines.map((l) => (
             <li key={l.variantId} className="flex items-center gap-3 text-sm">
-              <BagThumb sizeKg={l.sizeKg} />
+              <BagThumb sizeKg={l.sizeKg} src={l.imageUrl} />
               <span className="flex-1">{l.qty} × {l.sizeKg}kg bag</span>
               <span className="font-medium tabular-nums">{l.unitPriceKobo != null ? formatNaira(l.unitPriceKobo * l.qty) : "—"}</span>
             </li>

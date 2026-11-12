@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -34,8 +35,8 @@ export default function ReturnsPolicyPage() {
           <li>Once approved, we collect the damaged bag and deliver the replacement. We pay for both trips.</li>
         </ol>
         <p className="mt-3 text-muted">
-          Soon you&apos;ll be able to submit claims from your account. Until then, contact us
-          {site.phone ? ` on ${site.phone}` : ""}{site.whatsapp ? " or on WhatsApp" : ""}.
+          Open your order from <Link href="/account" className="underline">My account</Link> and tap{" "}
+          <strong>Request a replacement</strong>. You can also contact us{site.phone ? ` on ${site.phone}` : ""}{site.whatsapp ? " or on WhatsApp" : ""}.
         </p>
       </section>
       <section>
