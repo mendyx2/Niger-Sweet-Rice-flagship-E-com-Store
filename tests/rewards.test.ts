@@ -1,0 +1,47 @@
+import { describe, expect, it } from "vitest";
+import { pointsFor, pointsForOrder, pointsConfirmableAt, redemptionTier, rewardProgress } from "@/lib/rewards";
+import { canClaimReplacement } from "@/lib/returns";
+
+const order = { type: "STANDARD" as const, subtotalKobo: 8_000_000, discountKobo: 0, buyerId: "buyer",
+  referrerId: null, affiliateUserId: null, isBuyersFirstOrder: false };
+
+describe("purchase points", () => {
+  it("earns 1 point per full ₦100", () => {
+    expect(pointsFor(8_000_000, 1)).toBe(800);
+    expect(pointsFor(9_999, 1)).toBe(0);
+  });
+  it("awards buyer, referrer (with first-order bonus) and affiliate", () => {
+    const a = pointsForOrder({ ...order, referrerId: "ref", affiliateUserId: "aff", isBuyersFirstOrder: true });
+    expect(a).toEqual([
+      { userId: "buyer", delta: 800, reason: "PURCHASE" },
+      { userId: "ref", delta: 850, reason: "REFERRAL" },
+      { userId: "aff", delta: 1600, reason: "AFFILIATE" },
+    ]);
+  });
+  it("earns on goods after discount", () => {
+    expect(pointsForOrder({ ...order, discountKobo: 4_000_000 })[0].delta).toBe(400);
+  });
+  it("blocks self-referral and free orders", () => {
+    expect(pointsForOrder({ ...order, referrerId: "buyer", affiliateUserId: "buyer" })).toHaveLength(1);
+    expect(pointsForOrder({ ...order, type: "SAMPLE" })).toEqual([]);
+    expect(pointsForOrder({ ...order, type: "REPLACEMENT" })).toEqual([]);
+  });
+  it("confirms points after the 48h return window", () => {
+    expect(pointsConfirmableAt(new Date("2026-06-01T10:00:00Z")).toISOString()).toBe("2026-06-03T10:00:00.000Z");
+  });
+  it("redeems only known, affordable tiers", () => {
+    expect(redemptionTier(500, 600).ok).toBe(true);
+    expect(redemptionTier(500, 400)).toEqual({ ok: false, error: "NOT_ENOUGH_POINTS" });
+    expect(redemptionTier(123, 9999)).toEqual({ ok: false, error: "UNKNOWN_TIER" });
+    expect(rewardProgress(700).pointsToNext).toBe(300);
+  });
+});
+
+describe("replacement window", () => {
+  const delivered = new Date("2026-06-01T10:00:00Z");
+  it("allows claims within 48 hours of delivery only", () => {
+    expect(canClaimReplacement(delivered, new Date("2026-06-03T09:59:00Z"))).toBe(true);
+    expect(canClaimReplacement(delivered, new Date("2026-06-03T10:01:00Z"))).toBe(false);
+    expect(canClaimReplacement(null)).toBe(false);
+  });
+});

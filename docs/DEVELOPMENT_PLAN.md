@@ -4,6 +4,21 @@ This plan turns the rough brief into a buildable spec: scope, architecture, data
 
 ---
 
+## 0. Decisions confirmed (12 Nov 2026)
+
+| # | Question | Decision | Effect on the build |
+|---|---|---|---|
+| 1 | Bag sizes | **50kg, 25kg, 5kg, 1kg.** Prices to be set later | Prices start empty ("Price coming soon"). Staff set them in **/ops/prices** with no code change, and every change is logged |
+| 2 | Back office | **A small `/ops` staff screen is OK** | `/ops` holds prices & stock and delivery zones now; orders, approvals and returns come in later phases |
+| 3 | Affiliate rewards | **Coupons only: purchase points and discount offers.** No cash commission | Everyone (buyers, referrers, affiliates) earns points that convert into coupons. No payouts, no wallet |
+| 4 | Pay on delivery | **No, not for now** | Paystack prepaid only |
+| 5 | Nearby towns | **Yes, subject to terms such as a minimum order (MOQ)** | Zones for Suleja, Madalla, Zuba, Mararaba, Nyanya, Karu, Masaka, Kuje, Bwari, with a minimum order (default 50kg, editable per town) checked at checkout |
+| 6 | Returns | **48 hours from delivery; the brand pays for retrieval** | Replacement claims close 48h after delivery. Collection and redelivery are free to the customer |
+
+Where the sections below still say "[DECISION NEEDED]" or "[ASSUMPTION]" for these items, this table overrides them.
+
+---
+
 ## 1. The brief, interpreted
 
 | Rough note | What we will build |
@@ -331,3 +346,21 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 1. Answer the open questions in §12 (even rough answers unblock Phase 0).
 2. I scaffold the Next.js + TypeScript + Tailwind + Prisma project in this repo with CI, linting, environment templates and the base layout.
 3. Set up Sanity, Paystack test mode and Neon/Upstash staging, then start Phase 1.
+
+---
+
+## 14. Progress
+
+**Done (Phase 0 + start of Phase 1)**
+- Next.js 16 + TypeScript + Tailwind + Prisma/PostgreSQL project, CI (lint, typecheck, tests, build)
+- Full database schema (§9), seed data for the 4 bag sizes and 34 delivery zones
+- Pricing engine: delivery fee by zone and weight, nearby-town MOQ, coupons, wholesale pricing, stock checks (unit tested)
+- Points engine: purchase/referral/affiliate points, coupon tiers, self-referral block, 48h confirmation (unit tested)
+- Storefront: home, shop, product page with size picker and price per kg, delivery areas, returns policy, promotions
+- Local SEO basics: server-rendered pages, LocalBusiness + Product structured data, sitemap, robots
+- Caching: catalogue pages prerendered and refreshed the moment staff save a price
+- Security: CSP/HSTS and other headers, signed httpOnly staff session, login rate limit, audit log
+- Staff screens: `/ops/prices` (prices, wholesale, promo "was" price, stock) and `/ops/zones` (fees, MOQ, terms)
+
+**Next: Phase 2**
+- Cart, phone-OTP login, buyer/seller registration, checkout with Paystack, order confirmation SMS/WhatsApp

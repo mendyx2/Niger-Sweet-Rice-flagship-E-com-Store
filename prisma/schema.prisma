@@ -1,0 +1,402 @@
+// Niger Sweet Rice flagship store: database schema.
+// All money values are stored as integer KOBO (₦1 = 100 kobo) to avoid
+// floating-point rounding errors. Format for display with src/lib/money.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── People ─────────────────────────────────────────────────────────────────
+
+enum Role {
+  BUYER
+  SELLER
+  AFFILIATE
+  STAFF
+  OWNER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  phone         String    @unique // E.164, e.g. +2348012345678
+  email         String?   @unique
+  name          String?
+  passwordHash  String?
+  roles         Role[]    @default([BUYER])
+  referralCode  String    @unique
+  referredById  String?
+  referredBy    User?     @relation("Referrals", fields: [referredById], references: [id])
+  referrals     User[]    @relation("Referrals")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sellerProfile    SellerProfile?
+  affiliateProfile AffiliateProfile?
+  addresses        Address[]
+  orders           Order[]
+  coupons          Coupon[]
+  points           PointsTransaction[]
+  returnClaims     ReturnClaim[]
+}
+
+model SellerProfile {
+  userId       String         @id
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  cacNumber    String?
+  address      String
+  status       ApprovalStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+}
+
+/// Affiliates earn purchase points (redeemable for coupons). No cash, no wallet.
+model AffiliateProfile {
+  userId    String           @id
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String           @unique
+  status    ApprovalStatus   @default(PENDING)
+  createdAt DateTime         @default(now())
+  clicks    AffiliateClick[]
+  orders    Order[]
+}
+
+model AffiliateClick {
+  id          String           @id @default(cuid())
+  affiliateId String
+  affiliate   AffiliateProfile @relation(fields: [affiliateId], references: [userId], onDelete: Cascade)
+  productId   String?
+  ipHash      String
+  userAgent   String?
+  landingUrl  String
+  createdAt   DateTime         @default(now())
+
+  @@index([affiliateId, createdAt])
+}
+
+model Address {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zoneId    String
+  zone      DeliveryZone @relation(fields: [zoneId], references: [id])
+  street    String
+  landmark  String?
+  phone     String
+  isDefault Boolean      @default(false)
+}
+
+// ─── Catalogue ──────────────────────────────────────────────────────────────
+
+model Product {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  variants    Variant[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+/// One row per bag size (50kg, 25kg, 5kg, 1kg).
+/// Prices are null until staff set them in /ops/prices. A variant without a
+/// retail price is shown as "Price coming soon" and cannot be bought.
+model Variant {
+  id                  String        @id @default(cuid())
+  productId           String
+  product             Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku                 String        @unique
+  sizeKg              Int
+  retailPriceKobo     Int?
+  wholesalePriceKobo  Int?
+  compareAtPriceKobo  Int?          // "was" price for promotions
+  stockQty            Int           @default(0)
+  reservedQty         Int           @default(0)
+  isSampleSize        Boolean       @default(false) // 1kg is the free-sample size
+  active              Boolean       @default(true)
+  updatedAt           DateTime      @updatedAt
+  priceChanges        PriceChange[]
+  orderItems          OrderItem[]
+
+  @@unique([productId, sizeKg])
+}
+
+/// Audit trail of every price update made from /ops/prices.
+model PriceChange {
+  id         String   @id @default(cuid())
+  variantId  String
+  variant    Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  field      String   // retailPriceKobo | wholesalePriceKobo | compareAtPriceKobo
+  oldValue   Int?
+  newValue   Int?
+  changedBy  String
+  createdAt  DateTime @default(now())
+
+  @@index([variantId, createdAt])
+}
+
+// ─── Delivery ───────────────────────────────────────────────────────────────
+
+enum ZoneKind {
+  PICKUP       // collect at the flagship store
+  ABUJA        // core Abuja districts, no minimum order
+  NEARBY_TOWN  // Suleja, Mararaba, Nyanya, ...: minimum order applies
+}
+
+model DeliveryZone {
+  id               String    @id @default(cuid())
+  slug             String    @unique
+  name             String
+  kind             ZoneKind
+  baseFeeKobo      Int       @default(0)
+  perKgFeeKobo     Int       @default(0)
+  /// Minimum order (MOQ) for this zone. Either or both may be set; null = none.
+  minOrderKg       Int?
+  minOrderKobo     Int?
+  etaHours         Int?
+  terms            String?   // shown at checkout, e.g. "Delivery Tue & Fri only"
+  active           Boolean   @default(true)
+  sortOrder        Int       @default(0)
+  addresses        Address[]
+  orders           Order[]
+}
+
+// ─── Orders ─────────────────────────────────────────────────────────────────
+
+enum OrderType {
+  STANDARD
+  SAMPLE       // ₦0 product, customer pays delivery
+  REPLACEMENT  // ₦0 replacement bag from an approved return claim
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED_DELIVERY
+  CANCELLED
+}
+
+model Order {
+  id               String        @id @default(cuid())
+  number           String        @unique // human-friendly, e.g. NSR-24A7K9
+  userId           String?
+  user             User?         @relation(fields: [userId], references: [id])
+  guestPhone       String?
+  type             OrderType     @default(STANDARD)
+  status           OrderStatus   @default(PENDING_PAYMENT)
+  subtotalKobo     Int
+  discountKobo     Int           @default(0)
+  deliveryFeeKobo  Int
+  totalKobo        Int
+  zoneId           String
+  zone             DeliveryZone  @relation(fields: [zoneId], references: [id])
+  addressSnapshot  Json
+  couponId         String?
+  coupon           Coupon?       @relation(fields: [couponId], references: [id])
+  referrerId       String?
+  affiliateId      String?
+  affiliate        AffiliateProfile? @relation(fields: [affiliateId], references: [userId])
+  utm              Json?
+  paymentRef       String?       @unique
+  paidAt           DateTime?
+  deliveredAt      DateTime?
+  parentOrderId    String?       // set on REPLACEMENT orders
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  items            OrderItem[]
+  events           OrderStatusEvent[]
+  shipment         Shipment?
+  returnClaims     ReturnClaim[]  @relation("ClaimOriginalOrder")
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId      String
+  variant        Variant @relation(fields: [variantId], references: [id])
+  qty            Int
+  unitPriceKobo  Int     // price snapshot at time of purchase
+  sizeKg         Int     // snapshot
+}
+
+model OrderStatusEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String?
+  actor     String?
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+enum Carrier {
+  IN_HOUSE
+  KWIK
+  GIG
+}
+
+model Shipment {
+  id          String    @id @default(cuid())
+  orderId     String    @unique
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier     Carrier   @default(IN_HOUSE)
+  trackingId  String?
+  riderName   String?
+  riderPhone  String?
+  eta         DateTime?
+}
+
+// ─── Rewards: purchase points → coupons (no wallet) ─────────────────────────
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+enum CouponSource {
+  PROMO
+  REFERRAL_REWARD
+  AFFILIATE_REWARD
+  POINTS_REDEMPTION
+  WINBACK
+}
+
+model Coupon {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  type          CouponType
+  value         Int          // percent (1-100) or kobo
+  maxDiscountKobo Int?       // cap for percent coupons
+  minOrderKobo  Int          @default(0)
+  maxUses       Int          @default(1)
+  usedCount     Int          @default(0)
+  userId        String?      // personal coupon if set
+  user          User?        @relation(fields: [userId], references: [id])
+  source        CouponSource
+  startsAt      DateTime     @default(now())
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+  orders        Order[]
+}
+
+enum PointsReason {
+  PURCHASE
+  REFERRAL
+  AFFILIATE
+  REDEMPTION
+  EXPIRY
+  ADJUSTMENT
+}
+
+enum PointsStatus {
+  PENDING    // order not yet past the return window
+  CONFIRMED
+  REVERSED
+}
+
+/// Append-only ledger. A user's balance = SUM(delta) WHERE status = CONFIRMED.
+model PointsTransaction {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  delta     Int
+  reason    PointsReason
+  status    PointsStatus @default(PENDING)
+  orderId   String?
+  couponId  String?
+  note      String?
+  createdAt DateTime     @default(now())
+
+  @@index([userId, status])
+}
+
+/// Editable reward settings (earn rates, redemption tiers), stored as JSON.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Returns: bag replacement only ──────────────────────────────────────────
+
+enum ClaimStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REPLACEMENT_SCHEDULED
+  COMPLETED
+  REJECTED
+}
+
+enum ClaimReason {
+  TORN_BAG
+  TAMPERED
+  WATER_DAMAGED
+  UNDERWEIGHT
+  WRONG_SIZE
+}
+
+model ReturnClaim {
+  id                 String      @id @default(cuid())
+  orderId            String
+  order              Order       @relation("ClaimOriginalOrder", fields: [orderId], references: [id])
+  orderItemId        String
+  userId             String
+  user               User        @relation(fields: [userId], references: [id])
+  reason             ClaimReason
+  description        String
+  photoUrls          String[]
+  status             ClaimStatus @default(SUBMITTED)
+  resolutionNote     String?
+  replacementOrderId String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+}
+
+// ─── Infrastructure ─────────────────────────────────────────────────────────
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  eventId     String
+  payload     Json
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
