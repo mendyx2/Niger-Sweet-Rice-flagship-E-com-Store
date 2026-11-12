@@ -18,8 +18,13 @@ npm run db:seed           # bag sizes + delivery zones (prices start empty)
 npm run dev               # http://localhost:3000
 ```
 
+Without `PAYSTACK_SECRET_KEY` and `TERMII_API_KEY`, local development shows the SMS login code on screen and
+uses a "simulate payment" page, so the whole buying flow can be tested. Production refuses both shortcuts.
+
 Staff screens live at **/ops** (sign in with `OPS_PASSWORD`):
 
+- **/ops/orders**: move paid orders to preparing → out for delivery (with rider) → delivered. Each change texts the customer.
+- **/ops/sellers**: approve or reject reseller applications.
 - **/ops/prices**: set retail, wholesale and "was" (promo) prices, plus stock, per bag size. Every change is logged.
 - **/ops/zones**: delivery fees per area, and minimum orders (MOQ) for nearby towns.
 
@@ -30,7 +35,7 @@ Price edits show on the shop immediately: catalogue pages are cached and the cac
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the dev server |
-| `npm test` | Unit tests (pricing, coupons, MOQ, points, return window) |
+| `npm test` | Unit tests (pricing, coupons, MOQ, points, return window, phone numbers, Paystack signatures) |
 | `npm run typecheck` | Generate route types and run the TypeScript check |
 | `npm run lint` | ESLint |
 | `npm run build` | Production build (needs a reachable database: pages are prerendered from it) |
@@ -44,6 +49,9 @@ prisma/seed.ts            Bag sizes, flagship pickup, Abuja districts, nearby to
 src/lib/pricing.ts        Server-side order quote: prices, delivery fee, MOQ, coupons
 src/lib/rewards.ts        Purchase / referral / affiliate points → coupon tiers
 src/lib/catalogue.ts      Cached catalogue reads ("use cache" + tags)
+src/lib/orders.ts         Order creation, stock holds, payment confirmation (idempotent)
+src/lib/paystack.ts       Paystack API; webhook at src/app/api/webhooks/paystack
+src/lib/auth.ts, otp.ts   Phone + SMS-code sign-in, sessions
 src/lib/ops-auth.ts       Temporary staff sign-in for /ops
 src/app/                  Pages (shop, product, delivery, returns, promotions, ops)
 tests/                    Vitest unit tests

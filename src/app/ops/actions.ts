@@ -2,12 +2,17 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { TAGS } from "@/lib/catalogue";
 import { nairaToKobo } from "@/lib/money";
 import { checkOpsPassword, endOpsSession, requireOps, startOpsSession } from "@/lib/ops-auth";
+import { cancelUnpaidOrder } from "@/lib/orders";
+import { notifyStatus } from "@/lib/notify";
+import { NEXT_STATUSES } from "@/lib/status-text";
+import { sendSms } from "@/lib/sms";
+import { site } from "@/lib/site";
 
 export type FormState = { ok: boolean; message: string } | null;
 
@@ -31,7 +36,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   }
   attempts.delete(ip);
   await startOpsSession();
-  redirect("/ops/prices");
+  redirect("/ops/orders");
 }
 
 export async function logout() {
@@ -158,4 +163,86 @@ export async function updateZones(_prev: FormState, formData: FormData): Promise
 
 function pick<T extends object>(obj: T, keys: string[]) {
   return Object.fromEntries(keys.map((k) => [k, (obj as Record<string, unknown>)[k]])) as Record<string, never>;
+}
+
+// ─── Orders ─────────────────────────────────────────────────────────────────
+
+const statusInput = z.object({
+  orderId: z.string().max(40),
+  status: z.enum(["PENDING_PAYMENT", "PAID", "PROCESSING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED_DELIVERY", "CANCELLED"]),
+  riderName: z.string().trim().max(80).optional(),
+  riderPhone: z.string().trim().max(20).optional(),
+  note: z.string().trim().max(300).optional(),
+});
+
+export async function updateOrderStatus(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireOps();
+  const parsed = statusInput.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+  const { orderId, status, riderName, riderPhone, note } = parsed.data;
+
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  if (!order) return { ok: false, message: "Order not found." };
+  if (!NEXT_STATUSES[order.status].includes(status)) {
+    return { ok: false, message: `Can't change from ${order.status} to ${status}.` };
+  }
+
+  if (status === "CANCELLED" && order.status === "PENDING_PAYMENT") {
+    await cancelUnpaidOrder(order.id, note || "Cancelled by staff");
+  } else {
+    await db.$transaction(async (tx) => {
+      const n = await tx.order.updateMany({
+        where: { id: order.id, status: order.status },
+        data: { status, ...(status === "DELIVERED" ? { deliveredAt: new Date() } : {}) },
+      });
+      if (n.count !== 1) throw new Error("Order changed in the meantime; reload and try again.");
+      if (status === "CANCELLED") {
+        // Paid order cancelled: put bags back in stock and void its points. Refund from the Paystack dashboard.
+        for (const i of order.items) {
+          await tx.$executeRaw`UPDATE "Variant" SET "stockQty" = "stockQty" + ${i.qty} WHERE "id" = ${i.variantId}`;
+        }
+        await tx.pointsTransaction.updateMany({ where: { orderId: order.id, status: "PENDING" }, data: { status: "REVERSED" } });
+      }
+      if (status === "OUT_FOR_DELIVERY" && (riderName || riderPhone)) {
+        await tx.shipment.upsert({
+          where: { orderId: order.id },
+          create: { orderId: order.id, riderName: riderName || null, riderPhone: riderPhone || null },
+          update: { riderName: riderName || null, riderPhone: riderPhone || null },
+        });
+      }
+      await tx.orderStatusEvent.create({ data: { orderId: order.id, status, note: note || null, actor } });
+      await tx.auditLog.create({
+        data: { actor, action: "order.status", entity: "Order", entityId: order.id, before: { status: order.status }, after: { status } },
+      });
+    });
+  }
+  const extra = status === "OUT_FOR_DELIVERY" && riderName ? `Rider: ${riderName}${riderPhone ? `, ${riderPhone}` : ""}.` : undefined;
+  await notifyStatus(order, status, extra);
+  refresh();
+  return { ok: true, message: `${order.number} updated.` };
+}
+
+// ─── Seller applications ────────────────────────────────────────────────────
+
+export async function reviewSeller(formData: FormData) {
+  const actor = await requireOps();
+  const userId = String(formData.get("userId") ?? "");
+  const decision = formData.get("decision") === "approve" ? "APPROVED" : "REJECTED";
+  const profile = await db.sellerProfile.findUnique({ where: { userId }, include: { user: true } });
+  if (!profile) return;
+  await db.$transaction([
+    db.sellerProfile.update({ where: { userId }, data: { status: decision } }),
+    db.user.update({
+      where: { id: userId },
+      data: { roles: decision === "APPROVED" ? [...new Set([...profile.user.roles, "SELLER" as const])] : profile.user.roles.filter((r) => r !== "SELLER") },
+    }),
+    db.auditLog.create({ data: { actor, action: `seller.${decision.toLowerCase()}`, entity: "SellerProfile", entityId: userId } }),
+  ]);
+  await sendSms(
+    profile.user.phone,
+    decision === "APPROVED"
+      ? `${site.name}: your seller account for ${profile.businessName} is approved. Wholesale prices now show when you sign in.`
+      : `${site.name}: we couldn't approve your seller application for ${profile.businessName}. Please call us for details.`,
+  );
+  refresh();
 }

@@ -1,17 +1,27 @@
 @import "tailwindcss";
 
+/*
+ * Brand palette, taken from the rice bag:
+ *   green  #1d4d2d: the bag body. Primary brand colour (headers, text accents)
+ *   yellow #f8d906: the bag handle. Main call-to-action buttons only
+ *   red    #e04231: the bag banner. Used sparingly: promo/sale labels
+ * Text colours are checked for WCAG AA contrast on the cream background.
+ */
 :root {
   --background: #fbf8f1;
   --surface: #ffffff;
-  --foreground: #1c1a16;
-  --muted: #6b6458;
-  --border: #e7e0d1;
-  --brand: #1e5a34;
-  --brand-strong: #154226;
-  --brand-soft: #e6efe8;
-  --accent: #c58b1c;
-  --accent-soft: #fbf1dc;
-  --danger: #a4271b;
+  --foreground: #1a1f1b;
+  --muted: #5f655f;
+  --border: #e6e1d3;
+  --brand: #1d4d2d;
+  --brand-strong: #133821;
+  --brand-soft: #e8f0e9;
+  --cta: #f8d906;
+  --cta-strong: #e9c900;
+  --promo: #c8372a;
+  --promo-soft: #fdecea;
+  --danger: #b42318;
+  --success: #1f7a3d;
 }
 
 @theme inline {
@@ -23,9 +33,12 @@
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
-  --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
+  --color-cta: var(--cta);
+  --color-cta-strong: var(--cta-strong);
+  --color-promo: var(--promo);
+  --color-promo-soft: var(--promo-soft);
   --color-danger: var(--danger);
+  --color-success: var(--success);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
 }
@@ -36,6 +49,29 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 3px solid var(--brand);
   outline-offset: 2px;
+}
+
+@layer components {
+  /* Main buy/next-step action: yellow like the bag handle, green text (7:1 contrast) */
+  .btn-cta {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-cta px-6 py-3 font-semibold text-brand-strong
+      shadow-sm transition-colors hover:bg-cta-strong disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand px-6 py-3 font-semibold text-white
+      transition-colors hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-brand px-6 py-3 font-semibold
+      text-brand transition-colors hover:bg-brand-soft;
+  }
+  .field {
+    @apply mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-base
+      focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
+  }
+  .card {
+    @apply rounded-2xl border border-border bg-surface;
+  }
 }

@@ -3,7 +3,7 @@ import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Bag Replacement Policy",
-  description: "Damaged, torn or underweight bag? Report it within 48 hours of delivery and Niger Sweet Rice will replace it, collection included.",
+  description: `Damaged, torn or underweight bag? Report it within 48 hours of delivery and ${site.name} will replace it, collection included.`,
   alternates: { canonical: "/returns-policy" },
 };
 

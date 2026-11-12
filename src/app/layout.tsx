@@ -11,16 +11,16 @@ const body = Inter({ variable: "--font-body", subsets: ["latin"] });
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: "Niger Sweet Rice | Buy Rice Online in Abuja: 50kg, 25kg, 5kg & 1kg",
-    template: "%s | Niger Sweet Rice Abuja",
+    default: `${site.name} | Buy Rice Online in Abuja: 50kg, 25kg, 5kg & 1kg`,
+    template: `%s | ${site.name} Abuja`,
   },
   description:
-    "Order Niger Sweet Rice online from our Abuja flagship store. 50kg, 25kg, 5kg and 1kg bags, delivered across Abuja and nearby towns, or pick up in store.",
+    `Order ${site.name} online from our Abuja flagship store. 50kg, 25kg, 5kg and 1kg bags, delivered across Abuja and nearby towns, or pick up in store.`,
   openGraph: { type: "website", locale: "en_NG", siteName: site.name },
   alternates: { canonical: "/" },
 };
 
-export const viewport: Viewport = { themeColor: "#1e5a34" };
+export const viewport: Viewport = { themeColor: "#1d4d2d" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

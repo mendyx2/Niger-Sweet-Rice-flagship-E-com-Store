@@ -362,5 +362,18 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 - Security: CSP/HSTS and other headers, signed httpOnly staff session, login rate limit, audit log
 - Staff screens: `/ops/prices` (prices, wholesale, promo "was" price, stock) and `/ops/zones` (fees, MOQ, terms)
 
-**Next: Phase 2**
-- Cart, phone-OTP login, buyer/seller registration, checkout with Paystack, order confirmation SMS/WhatsApp
+**Done (Phase 2 + parts of Phase 3), 12 Nov 2026**
+- Brand look taken from the bag: green (main), yellow (buy buttons, like the handle), red (promo labels only); product photo on every page
+- Cart that works without an account, live prices and delivery fee from the server, nearby-town minimum order checked before checkout
+- Phone sign-in with SMS code (also creates the account), account page with points, referral link, orders, profile
+- Seller/reseller application with staff approval; approved sellers see wholesale prices
+- Checkout: delivery details, stock held for 30 minutes, Paystack payment (verified server-side + signed webhook), test payment page in local development
+- Order confirmation page, SMS updates, public tracking page (order number + phone)
+- Staff `/ops/orders` (move orders through delivery, rider details, cancel) and `/ops/sellers`
+- Purchase/referral points recorded as pending on payment, confirmed 48h after delivery
+
+**Needed from the business to go live:** Paystack account (secret key + webhook), Termii account (SMS), domain, real store address/phone, photos of each bag size, confirmed delivery fees
+
+**Next: Phase 4**
+- Points → coupon redemption screen, affiliate links and dashboard, promotions managed by staff, free-sample ordering (pay delivery only)
+- Bag replacement claims with photo upload

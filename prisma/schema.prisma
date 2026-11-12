@@ -48,6 +48,34 @@ model User {
   coupons          Coupon[]
   points           PointsTransaction[]
   returnClaims     ReturnClaim[]
+  sessions         Session[]
+}
+
+/// Login session. The cookie holds a random token; only its SHA-256 hash is stored.
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  userAgent  String?
+
+  @@index([userId])
+}
+
+/// One-time login codes sent by SMS. Only an HMAC of the code is stored.
+model OtpCode {
+  id          String    @id @default(cuid())
+  phone       String
+  codeHash    String
+  attempts    Int       @default(0)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  ipHash      String?
+  createdAt   DateTime  @default(now())
+
+  @@index([phone, createdAt])
 }
 
 model SellerProfile {
@@ -198,6 +226,11 @@ model Order {
   userId           String?
   user             User?         @relation(fields: [userId], references: [id])
   guestPhone       String?
+  contactPhone     String
+  contactEmail     String?
+  customerName     String
+  note             String?
+  reservedUntil    DateTime?     // stock is held for unpaid orders until this time
   type             OrderType     @default(STANDARD)
   status           OrderStatus   @default(PENDING_PAYMENT)
   subtotalKobo     Int

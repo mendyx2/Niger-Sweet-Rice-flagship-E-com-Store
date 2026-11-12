@@ -5,6 +5,9 @@ import { getProduct, getProducts } from "@/lib/catalogue";
 import { site } from "@/lib/site";
 import { JsonLd } from "@/components/json-ld";
 import { SizePicker } from "./size-picker";
+import { BagImage } from "@/components/bag-image";
+import { ShieldIcon, StoreIcon, TruckIcon } from "@/components/icons";
+import Link from "next/link";
 
 export async function generateStaticParams() {
   const products = await getProducts();
@@ -23,14 +26,35 @@ export async function generateMetadata({ params }: PageProps<"/p/[slug]">): Prom
   };
 }
 
-export default async function ProductPage({ params }: PageProps<"/p/[slug]">) {
+export default function ProductPage({ params }: PageProps<"/p/[slug]">) {
+  return (
+    <Suspense fallback={<ProductSkeleton />}>
+      <Product params={params} />
+    </Suspense>
+  );
+}
+
+function ProductSkeleton() {
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12 grid gap-8 md:gap-12 md:grid-cols-2" aria-busy="true">
+      <div className="aspect-square rounded-3xl bg-surface border border-border animate-pulse" />
+      <div className="space-y-4">
+        <div className="h-12 w-3/4 rounded-xl bg-border/60 animate-pulse" />
+        <div className="h-24 rounded-xl bg-border/40 animate-pulse" />
+        <div className="h-72 rounded-2xl bg-surface border border-border" />
+      </div>
+    </div>
+  );
+}
+
+async function Product({ params }: Pick<PageProps<"/p/[slug]">, "params">) {
   const { slug } = await params;
   const p = await getProduct(slug);
   if (!p) notFound();
 
   const priced = p.variants.filter((v) => v.retailPriceKobo != null);
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 grid gap-10 md:grid-cols-2">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12 grid gap-8 md:gap-12 md:grid-cols-2">
       {priced.length > 0 && (
         <JsonLd
           data={{
@@ -38,7 +62,8 @@ export default async function ProductPage({ params }: PageProps<"/p/[slug]">) {
             "@type": "Product",
             name: p.name,
             description: p.description,
-            brand: { "@type": "Brand", name: "Niger Sweet Rice" },
+            brand: { "@type": "Brand", name: site.name },
+            image: `${site.url}${site.productImage}`,
             offers: priced.map((v) => ({
               "@type": "Offer",
               sku: v.sku,
@@ -52,15 +77,23 @@ export default async function ProductPage({ params }: PageProps<"/p/[slug]">) {
           }}
         />
       )}
-      <div className="aspect-square rounded-3xl bg-brand-soft flex items-center justify-center">
-        <span className="font-display text-brand text-5xl font-bold text-center px-6">{p.name}</span>
+      <div className="md:sticky md:top-24 self-start">
+        <BagImage priority className="aspect-square border border-border" />
       </div>
       <div>
-        <h1 className="font-display text-4xl font-bold">{p.name}</h1>
-        <p className="mt-4 text-muted">{p.description}</p>
-        <Suspense fallback={<div className="mt-8 h-48 rounded-2xl bg-surface border border-border" />}>
+        <nav aria-label="Breadcrumb" className="text-sm text-muted">
+          <Link href="/shop" className="hover:underline">Shop</Link> <span aria-hidden="true">/</span> {p.name}
+        </nav>
+        <h1 className="font-display text-4xl sm:text-5xl font-bold mt-2">{p.name}</h1>
+        <p className="mt-4 text-muted text-lg leading-relaxed">{p.description}</p>
+        <Suspense fallback={<div className="mt-8 h-72 card" />}>
           <SizePicker variants={p.variants} whatsapp={site.whatsapp} productName={p.name} />
         </Suspense>
+        <ul className="mt-8 space-y-3 text-sm">
+          <li className="flex gap-3"><TruckIcon className="h-5 w-5 text-brand shrink-0" /> Delivery across Abuja within 24 hours; nearby towns have a minimum order.</li>
+          <li className="flex gap-3"><StoreIcon className="h-5 w-5 text-brand shrink-0" /> Free pickup at our Abuja flagship store.</li>
+          <li className="flex gap-3"><ShieldIcon className="h-5 w-5 text-brand shrink-0" /> Damaged or underweight bag? <Link href="/returns-policy" className="underline">We replace it.</Link></li>
+        </ul>
       </div>
     </div>
   );
