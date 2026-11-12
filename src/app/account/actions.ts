@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { refresh } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { destroySession, requireUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { newCouponCode, redeemPoints } from "@/lib/redeem";
 
 export type FormState = { ok: boolean; message: string } | null;
@@ -80,4 +81,43 @@ export async function applyAsAffiliate(): Promise<void> {
     }
   }
   refresh();
+}
+
+/**
+ * Deletes the account's personal data (NDPA right to erasure). Order records are
+ * kept, as the law requires for tax/accounting, but are no longer linked to a
+ * login. Blocked while an order is still on its way.
+ */
+export async function deleteAccount(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  if (String(formData.get("confirm") ?? "").trim().toUpperCase() !== "DELETE") {
+    return { ok: false, message: "Type DELETE to confirm." };
+  }
+  const active = await db.order.count({
+    where: { userId: user.id, status: { in: ["PENDING_PAYMENT", "PAID", "PROCESSING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "FAILED_DELIVERY"] } },
+  });
+  if (active) return { ok: false, message: "You have an order in progress. You can delete your account once it has been delivered." };
+
+  const balance = (await db.pointsTransaction.aggregate({ where: { userId: user.id, status: "CONFIRMED" }, _sum: { delta: true } }))._sum.delta ?? 0;
+  await db.$transaction([
+    // Points ledger is append-only: zero the balance with an entry, and void pending points.
+    ...(balance > 0
+      ? [db.pointsTransaction.create({ data: { userId: user.id, delta: -balance, reason: "EXPIRY", status: "CONFIRMED", note: "Account deleted" } })]
+      : []),
+    db.pointsTransaction.updateMany({ where: { userId: user.id, status: "PENDING" }, data: { status: "REVERSED" } }),
+    db.session.deleteMany({ where: { userId: user.id } }),
+    db.address.deleteMany({ where: { userId: user.id } }),
+    db.sellerProfile.deleteMany({ where: { userId: user.id } }),
+    db.affiliateProfile.updateMany({ where: { userId: user.id }, data: { status: "REJECTED" } }),
+    db.coupon.updateMany({ where: { userId: user.id, expiresAt: null }, data: { expiresAt: new Date() } }),
+    db.coupon.updateMany({ where: { userId: user.id, expiresAt: { gt: new Date() } }, data: { expiresAt: new Date() } }),
+    db.claimPhoto.deleteMany({ where: { claim: { userId: user.id } } }),
+    db.user.update({
+      where: { id: user.id },
+      data: { phone: `deleted-${user.id}`, name: null, email: null, passwordHash: null, roles: ["BUYER"] },
+    }),
+    db.auditLog.create({ data: { actor: user.id, action: "account.deleted", entity: "User", entityId: user.id } }),
+  ]);
+  await destroySession();
+  redirect("/?account=deleted");
 }

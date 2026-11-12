@@ -383,7 +383,20 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 - Promotions: staff publish promotions with start/end dates and optional coupon codes (% or ₦ off, minimum spend, cap, usage limit); pausing a promotion also stops its code
 - Cart shows discounts before a delivery area is chosen
 
-**Next: Phase 5 (analytics, hardening) and Phase 6 (local SEO launch)**
-- GA4 / Meta Pixel with cookie consent, owner reports
-- Area landing pages for local SEO, Google Business Profile
-- Move rate limits to Redis before running more than one server; points expiry after 12 months; follow-up coupon after a sample is delivered
+**Done (Phases 5 & 6 build work), 12 Nov 2026**
+- Local SEO: a page per delivery area (33, e.g. `/delivery/gwarinpa`) with real fees, delivery times, minimum order and delivered prices; FAQ page with FAQ structured data; sitemap lists every page
+- Privacy policy and terms of sale (NDPA 2023, plain language; to be reviewed by a lawyer); branded 404 and error pages
+- Cookie consent: analytics (GA4, Meta Pixel) load only after "Accept"; choice can be changed from the footer; e-commerce events: view item, add to cart, begin checkout, purchase, sample request
+- Owner sales report `/ops/reports`: sales, orders, average order, kg sold, sample → purchase rate, daily chart, by bag size, channel, area and affiliate (7/30/90 days)
+- Hardening: rate limits shared through Upstash Redis when configured; points expire after 12 months (oldest spent first); "come back" ₦1,000 coupon by SMS 3 days after a sample is delivered; customers can delete their account
+
+**Launch checklist (needs the business):**
+1. Paystack live keys + webhook URL `https://<domain>/api/webhooks/paystack`
+2. Termii account + sender ID registration
+3. Domain, hosting (Vercel), Postgres (Neon) and, if more than one server, Upstash Redis
+4. Scheduled call to `/api/cron/release-reservations` every 10 minutes with `CRON_SECRET`
+5. Real store address, phone, map coordinates; Google Business Profile with the same details
+6. Photos of the 50kg and 25kg bags (and a single-pouch 1kg photo if sold singly)
+7. Confirmed prices, stock and delivery fees in `/ops`
+8. GA4 measurement ID and Meta Pixel ID (optional)
+9. Lawyer review of privacy policy and terms

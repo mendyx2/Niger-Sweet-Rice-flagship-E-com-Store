@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
@@ -14,28 +13,20 @@ import { notifyStatus } from "@/lib/notify";
 import { NEXT_STATUSES } from "@/lib/status-text";
 import { sendSms } from "@/lib/sms";
 import { site } from "@/lib/site";
+import { rateLimit } from "@/lib/rate-limit";
+import { clientIp } from "@/lib/request";
 
 export type FormState = { ok: boolean; message: string } | null;
 
-// ─── Login (basic brute-force protection; Redis-backed limiter in Phase 2) ──
-const attempts = new Map<string, { count: number; resetAt: number }>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60_000;
+// ─── Login ──────────────────────────────────────────────────────────────────
 
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
-  const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
-  const now = Date.now();
-  const a = attempts.get(ip);
-  if (a && a.resetAt > now && a.count >= MAX_ATTEMPTS) {
+  const ip = await clientIp();
+  if (!(await rateLimit(`ops-login:${ip}`, 5, 15 * 60_000)).ok) {
     return { ok: false, message: "Too many attempts. Try again in 15 minutes." };
   }
   const password = String(formData.get("password") ?? "");
-  if (!checkOpsPassword(password)) {
-    attempts.set(ip, a && a.resetAt > now ? { ...a, count: a.count + 1 } : { count: 1, resetAt: now + WINDOW_MS });
-    return { ok: false, message: "Incorrect password." };
-  }
-  attempts.delete(ip);
+  if (!checkOpsPassword(password)) return { ok: false, message: "Incorrect password." };
   await startOpsSession();
   redirect("/ops/orders");
 }

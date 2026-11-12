@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { Analytics, ConsentBanner } from "@/components/consent";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -32,6 +33,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteHeader />
         <main id="main" className="flex-1">{children}</main>
         <SiteFooter />
+        <ConsentBanner />
+        <Analytics />
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { formatNaira } from "@/lib/money";
 import { ZoneSelect, type ZoneOption } from "@/components/zone-select";
 import { requestSample, type SampleState } from "./actions";
+import { track } from "@/lib/analytics";
 
 export function SampleForm({ zones, defaults }: {
   zones: (ZoneOption & { fee: number })[];
@@ -11,7 +12,11 @@ export function SampleForm({ zones, defaults }: {
 }) {
   const [zoneId, setZoneId] = useState("");
   const [state, action, pending] = useActionState<SampleState, FormData>(requestSample, null);
-  useEffect(() => { if (state?.ok) window.location.assign(state.url); }, [state]);
+  useEffect(() => {
+    if (!state?.ok) return;
+    track("generate_lead");
+    window.location.assign(state.url);
+  }, [state]);
 
   const zone = zones.find((z) => z.id === zoneId);
   const isPickup = zone?.kind === "PICKUP";

@@ -99,3 +99,12 @@ export function rewardProgress(balance: number, rules = DEFAULT_REWARD_RULES) {
   const next = sorted.find((t) => t.points > balance) ?? null;
   return { affordable, next, pointsToNext: next ? next.points - balance : 0 };
 }
+
+/**
+ * Points expire 12 months after they're earned, spending the oldest first:
+ * whatever was earned before the cutoff and hasn't been spent (or already
+ * expired) by now is due to expire.
+ */
+export function pointsToExpire(earnedBeforeCutoff: number, spentOrExpiredSoFar: number): number {
+  return Math.max(0, earnedBeforeCutoff - spentOrExpiredSoFar);
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toItem, track } from "@/lib/analytics";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { CatalogueVariant } from "@/lib/catalogue";
 import { cart } from "@/lib/cart-store";
@@ -25,6 +26,15 @@ export function SizePicker({
 
   const requested = Number(search.get("size"));
   const selected = variants.find((v) => v.sizeKg === requested) ?? variants[0];
+
+  useEffect(() => {
+    if (selected?.retailPriceKobo == null) return;
+    track("view_item", {
+      valueKobo: selected.retailPriceKobo,
+      items: [toItem({ sku: selected.sku, sizeKg: selected.sizeKg, priceKobo: selected.retailPriceKobo }, productName)],
+    });
+  }, [selected?.id, selected?.retailPriceKobo, selected?.sku, selected?.sizeKg, productName]);
+
   if (!selected) return null;
 
   const priced = selected.retailPriceKobo != null;
@@ -40,6 +50,10 @@ export function SizePicker({
 
   const addToCart = () => {
     cart.add(selected.id, qty);
+    track("add_to_cart", {
+      valueKobo: selected.retailPriceKobo! * qty,
+      items: [toItem({ sku: selected.sku, sizeKg: selected.sizeKg, priceKobo: selected.retailPriceKobo!, qty }, productName)],
+    });
     setAdded(`${qty} × ${selected.sizeKg}kg`);
   };
 

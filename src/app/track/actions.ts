@@ -13,7 +13,7 @@ export type TrackResult =
 
 /** Public tracking needs both the order number AND the phone on the order, and is rate-limited. */
 export async function trackOrder(_prev: TrackResult, formData: FormData): Promise<TrackResult> {
-  if (!rateLimit(`track:${await clientIp()}`, 20, 15 * 60_000).ok) return { ok: false, error: "Too many lookups. Please try again later." };
+  if (!(await rateLimit(`track:${await clientIp()}`, 20, 15 * 60_000)).ok) return { ok: false, error: "Too many lookups. Please try again later." };
   const number = String(formData.get("number") ?? "").trim().toUpperCase().replace(/^(?!NSR-)/, "NSR-");
   const phone = normalizeNgPhone(String(formData.get("phone") ?? ""));
   const notFound = { ok: false as const, error: "We couldn't find an order with that number and phone. Please check both." };

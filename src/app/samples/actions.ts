@@ -24,7 +24,7 @@ const schema = z.object({
 /** Free 1kg sample: the rice is ₦0, the customer pays delivery (pickup is free). One per account and per address. */
 export async function requestSample(_prev: SampleState, formData: FormData): Promise<SampleState> {
   const user = await requireUser("/samples");
-  if (!rateLimit(`sample:${user.id}`, 5, 10 * 60_000).ok) return { ok: false, error: "Too many attempts. Please wait a few minutes." };
+  if (!(await rateLimit(`sample:${user.id}`, 5, 10 * 60_000)).ok) return { ok: false, error: "Too many attempts. Please wait a few minutes." };
 
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };

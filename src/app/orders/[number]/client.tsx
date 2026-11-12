@@ -2,10 +2,24 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { cart } from "@/lib/cart-store";
+import { track } from "@/lib/analytics";
 import { retryPayment } from "../../checkout/actions";
 
-export function ClearCart() {
-  useEffect(() => cart.clear(), []);
+/** After payment: empty the cart and record the purchase once (deduplicated by order number). */
+export function ClearCart({ number, totalKobo, items }: { number: string; totalKobo: number; items: { sku: string; sizeKg: number; priceKobo: number; qty: number }[] }) {
+  useEffect(() => {
+    cart.clear();
+    try {
+      const key = `nsr_purchase_${number}`;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch {}
+    track("purchase", {
+      transactionId: number,
+      valueKobo: totalKobo,
+      items: items.map((i) => ({ item_id: i.sku, item_name: "Rice", item_variant: `${i.sizeKg}kg`, price: i.priceKobo / 100, quantity: i.qty })),
+    });
+  }, [number, totalKobo, items]);
   return null;
 }
 

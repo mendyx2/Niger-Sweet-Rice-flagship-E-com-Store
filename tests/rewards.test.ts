@@ -57,3 +57,12 @@ describe("free sample address matching", () => {
     expect(sampleAddressKey("a", "12 Aminu Kano Cres")).not.toBe(sampleAddressKey("b", "12 Aminu Kano Cres"));
   });
 });
+
+import { pointsToExpire } from "@/lib/rewards";
+describe("points expiry (oldest spent first)", () => {
+  it("expires only old points that weren't spent", () => {
+    expect(pointsToExpire(800, 500)).toBe(300);
+    expect(pointsToExpire(800, 900)).toBe(0);
+    expect(pointsToExpire(0, 0)).toBe(0);
+  });
+});

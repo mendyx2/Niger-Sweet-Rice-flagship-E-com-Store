@@ -19,7 +19,7 @@ export async function requestCode(_prev: OtpState, formData: FormData): Promise<
   if (!phone) return { step: "phone", phone: raw, error: "Enter a valid Nigerian mobile number, e.g. 0801 234 5678." };
 
   const ip = await clientIp();
-  if (!rateLimit(`otp-ip:${ip}`, 10, 15 * 60_000).ok) {
+  if (!(await rateLimit(`otp-ip:${ip}`, 10, 15 * 60_000)).ok) {
     return { step: "phone", phone: raw, error: "Too many requests. Please wait a few minutes and try again." };
   }
   const r = await sendOtp(phone, ip);
@@ -41,7 +41,7 @@ export async function verifyCode(_prev: OtpState | null, formData: FormData): Pr
   const next = safeNext(String(formData.get("next") ?? ""));
   if (!phone) return { step: "phone", error: "Please enter your phone number again." };
 
-  if (!rateLimit(`otp-verify:${phone}`, 10, 15 * 60_000).ok) {
+  if (!(await rateLimit(`otp-verify:${phone}`, 10, 15 * 60_000)).ok) {
     return { step: "code", phone, error: "Too many attempts. Please request a new code in a few minutes." };
   }
   const r = await verifyOtp(phone, code);

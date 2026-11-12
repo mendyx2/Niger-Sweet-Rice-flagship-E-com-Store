@@ -251,6 +251,7 @@ model Order {
   paidAt           DateTime?
   deliveredAt      DateTime?
   parentOrderId    String?       // set on REPLACEMENT orders
+  followUpSentAt   DateTime?     // SAMPLE orders: "come back" coupon sent
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 

@@ -9,6 +9,7 @@ import { OrderSummary } from "@/components/order-summary";
 import { ZoneSelect, type ZoneOption } from "@/components/zone-select";
 import { getCartQuote, type CartQuoteResult } from "../cart/actions";
 import { placeOrder, type CheckoutState } from "./actions";
+import { track } from "@/lib/analytics";
 
 export function CheckoutForm({
   zones, initialZoneId, initialCoupon, defaults,
@@ -30,6 +31,11 @@ export function CheckoutForm({
     startTransition(async () => setData(await getCartQuote({ lines, zoneId: zoneId || null, couponCode: initialCoupon || null })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+
+  const begunValue = data?.quote?.subtotalKobo;
+  useEffect(() => {
+    if (begunValue != null) track("begin_checkout", { valueKobo: begunValue });
+  }, [begunValue != null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Payment page (Paystack, or the local test page) opens once the order is created.
   useEffect(() => {

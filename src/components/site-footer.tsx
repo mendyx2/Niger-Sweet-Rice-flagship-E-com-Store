@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { site } from "@/lib/site";
 import { Logo } from "./logo";
+import { CookieSettingsLink } from "./consent";
 
 export function SiteFooter() {
   return (
@@ -26,9 +27,15 @@ export function SiteFooter() {
           <li><Link className="hover:text-white hover:underline" href="/track">Track your order</Link></li>
           <li><Link className="hover:text-white hover:underline" href="/returns-policy">Bag replacement policy</Link></li>
           <li><Link className="hover:text-white hover:underline" href="/register?as=seller">Sell / resell our rice</Link></li>
+          <li><Link className="hover:text-white hover:underline" href="/faq">FAQ</Link></li>
         </ul>
       </div>
-      <p className="text-center text-xs text-white/60 pb-8">© {site.name}. All rights reserved.</p>
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 pb-8 text-xs text-white/70">
+        <span>© {site.name}. All rights reserved.</span>
+        <Link href="/privacy" className="hover:text-white hover:underline">Privacy</Link>
+        <Link href="/terms" className="hover:text-white hover:underline">Terms</Link>
+        <CookieSettingsLink />
+      </div>
     </footer>
   );
 }

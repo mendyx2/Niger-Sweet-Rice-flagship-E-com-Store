@@ -19,7 +19,7 @@ const schema = z.object({
 
 export async function submitClaim(_prev: ClaimState, formData: FormData): Promise<ClaimState> {
   const user = await requireUser();
-  if (!rateLimit(`claim:${user.id}`, 5, 60 * 60_000).ok) return { ok: false, message: "Too many attempts. Please try again later." };
+  if (!(await rateLimit(`claim:${user.id}`, 5, 60 * 60_000)).ok) return { ok: false, message: "Too many attempts. Please try again later." };
 
   const parsed = schema.safeParse(Object.fromEntries([...formData.entries()].filter(([, v]) => typeof v === "string")));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };

@@ -1,7 +1,10 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
-import { pointsForOrder } from "./rewards";
+import { pointsForOrder, pointsToExpire } from "./rewards";
+import { newCouponCode } from "./redeem";
+import { sendSms } from "./sms";
+import { site } from "./site";
 import { notifyOrderPaid } from "./notify";
 
 export const RESERVATION_MINUTES = 30;
@@ -210,4 +213,50 @@ export async function confirmDuePoints(): Promise<number> {
     data: { status: "CONFIRMED" },
   });
   return r.count;
+}
+
+/** Expires points older than 12 months that haven't been spent (oldest spent first). */
+export async function expireOldPoints(months = 12): Promise<number> {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+  const rows = await db.$queryRaw<{ userId: string; earned: bigint; used: bigint }[]>`
+    SELECT "userId",
+      COALESCE(SUM(CASE WHEN delta > 0 AND "createdAt" < ${cutoff} THEN delta END), 0) AS earned,
+      COALESCE(-SUM(CASE WHEN delta < 0 THEN delta END), 0) AS used
+    FROM "PointsTransaction" WHERE status = 'CONFIRMED'
+    GROUP BY "userId"`;
+  let n = 0;
+  for (const r of rows) {
+    const due = pointsToExpire(Number(r.earned), Number(r.used));
+    if (due > 0) {
+      await db.pointsTransaction.create({
+        data: { userId: r.userId, delta: -due, reason: "EXPIRY", status: "CONFIRMED", note: `Points older than ${months} months` },
+      });
+      n++;
+    }
+  }
+  return n;
+}
+
+/** 3 days after a free sample is delivered: a personal "come back" coupon by SMS. */
+export async function sendSampleFollowUps(): Promise<number> {
+  const due = await db.order.findMany({
+    where: { type: "SAMPLE", status: "DELIVERED", followUpSentAt: null, deliveredAt: { lt: new Date(Date.now() - 3 * 86400_000) } },
+    select: { id: true, userId: true, contactPhone: true },
+    take: 100,
+  });
+  let n = 0;
+  for (const o of due) {
+    const claimed = await db.order.updateMany({ where: { id: o.id, followUpSentAt: null }, data: { followUpSentAt: new Date() } });
+    if (claimed.count !== 1 || !o.userId) continue;
+    const coupon = await db.coupon.create({
+      data: {
+        code: newCouponCode("TRY"), type: "FIXED", value: 1_000_00, minOrderKobo: 20_000_00, maxUses: 1,
+        userId: o.userId, source: "WINBACK", expiresAt: new Date(Date.now() + 30 * 86400_000),
+      },
+    });
+    await sendSms(o.contactPhone, `${site.name}: enjoyed your sample? Here's ₦1,000 off your first bag (orders over ₦20,000): ${coupon.code}. Valid 30 days. ${site.url}/shop`);
+    n++;
+  }
+  return n;
 }

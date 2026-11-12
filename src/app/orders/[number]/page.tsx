@@ -52,7 +52,11 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
 
   return (
     <>
-      {order.paidAt && <ClearCart />}
+      {/* Just paid: empty the cart and record the purchase (not on later visits). */}
+      {justPaid && (
+        <ClearCart number={order.number} totalKobo={order.totalKobo}
+          items={order.items.map((i) => ({ sku: i.variant.sku, sizeKg: i.sizeKg, priceKobo: i.unitPriceKobo, qty: i.qty }))} />
+      )}
       {justPaid && (
         <div className="mb-8 rounded-3xl bg-brand p-6 sm:p-8 text-white">
           <p className="text-cta font-semibold">Thank you{order.customerName ? `, ${order.customerName.split(" ")[0]}` : ""}!</p>

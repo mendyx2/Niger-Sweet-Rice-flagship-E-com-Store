@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getZones } from "@/lib/catalogue";
 import { formatNaira } from "@/lib/money";
 
@@ -44,7 +45,7 @@ export default async function DeliveryPage() {
                   {list.map((z) => (
                     <tr key={z.id} className="border-t border-border align-top">
                       <td className="p-3 font-medium">
-                        {z.name}
+                        {z.kind === "PICKUP" ? z.name : <Link href={`/delivery/${z.slug}`} className="text-brand hover:underline">{z.name}</Link>}
                         {z.terms && <p className="text-xs text-muted font-normal mt-1">{z.terms}</p>}
                       </td>
                       <td className="p-3">

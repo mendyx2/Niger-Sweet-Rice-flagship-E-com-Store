@@ -27,6 +27,11 @@ Staff screens live at **/ops** (sign in with `OPS_PASSWORD`):
 - **/ops/returns**: review bag-replacement requests with photos; approving creates a free replacement order.
 - **/ops/partners**: approve sellers (wholesale prices) and affiliates.
 - **/ops/promotions**: publish promotions and coupon codes with start/end dates.
+- **/ops/reports**: sales, orders, kg sold, sample conversion, by size/area/channel/affiliate.
+
+Housekeeping runs from `/api/cron/release-reservations` (call every ~10 minutes with
+`Authorization: Bearer $CRON_SECRET`): frees stock from unpaid orders, confirms points after the
+return window, expires year-old points and sends sample follow-up coupons.
 - **/ops/prices**: set retail, wholesale and "was" (promo) prices, plus stock, per bag size. Every change is logged.
 - **/ops/zones**: delivery fees per area, and minimum orders (MOQ) for nearby towns.
 

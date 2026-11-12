@@ -35,7 +35,7 @@ const schema = z.object({
 
 export async function placeOrder(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
   const user = await requireUser("/checkout");
-  if (!rateLimit(`checkout:${user.id}`, 10, 10 * 60_000).ok) {
+  if (!(await rateLimit(`checkout:${user.id}`, 10, 10 * 60_000)).ok) {
     return { ok: false, errors: ["Too many attempts. Please wait a few minutes."] };
   }
   const parsed = schema.safeParse(Object.fromEntries(formData));

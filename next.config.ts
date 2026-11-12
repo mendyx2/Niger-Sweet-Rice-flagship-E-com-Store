@@ -2,15 +2,21 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// Content-Security-Policy. Loosened in dev for hot reload. Analytics domains
-// (GA4, Meta Pixel) get added here in Phase 5 alongside cookie consent.
+// Content-Security-Policy. Loosened in dev for hot reload.
+// Analytics hosts are allowed only when their IDs are configured (scripts still
+// load only after the visitor accepts cookies).
+const ga = process.env.NEXT_PUBLIC_GA_ID ? " https://www.googletagmanager.com" : "";
+const gaConnect = process.env.NEXT_PUBLIC_GA_ID ? " https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com" : "";
+const meta = process.env.NEXT_PUBLIC_META_PIXEL_ID ? " https://connect.facebook.net" : "";
+const metaImg = process.env.NEXT_PUBLIC_META_PIXEL_ID ? " https://www.facebook.com" : "";
+
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}${ga}${meta}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  `img-src 'self' data: blob:${gaConnect}${metaImg}`,
   "font-src 'self'",
-  "connect-src 'self'",
+  `connect-src 'self'${gaConnect}${metaImg}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

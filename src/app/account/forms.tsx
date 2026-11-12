@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { applyAsSeller, redeem, updateProfile } from "./actions";
+import { applyAsSeller, deleteAccount, redeem, updateProfile } from "./actions";
 
 export function ProfileForm({ name, email }: { name: string; email: string }) {
   const [state, action, pending] = useActionState(updateProfile, null);
@@ -70,6 +70,26 @@ export function RedeemForm({ tiers, balance }: { tiers: { points: number; label:
         })}
       </ul>
       {state && <p role="status" className={`mt-3 text-sm font-medium ${state.ok ? "text-success" : "text-danger"}`}>{state.message}</p>}
+    </form>
+  );
+}
+
+export function DeleteAccountForm() {
+  const [state, action, pending] = useActionState(deleteAccount, null);
+  return (
+    <form action={action} className="mt-4 space-y-3">
+      <p className="text-sm text-muted">
+        This removes your phone number, name, email, addresses, unused coupons, points and replacement photos. Order records stay on file for
+        tax purposes but are no longer linked to you. This can&apos;t be undone.
+      </p>
+      <label className="block text-sm">
+        <span className="font-semibold">Type DELETE to confirm</span>
+        <input name="confirm" autoComplete="off" className="field max-w-xs" />
+      </label>
+      {state && !state.ok && <p role="alert" className="text-sm text-danger">{state.message}</p>}
+      <button disabled={pending} className="rounded-full border border-danger px-5 py-2 text-sm font-semibold text-danger hover:bg-promo-soft">
+        {pending ? "Deleting…" : "Delete my account"}
+      </button>
     </form>
   );
 }

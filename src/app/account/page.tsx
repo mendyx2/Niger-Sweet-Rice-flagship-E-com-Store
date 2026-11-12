@@ -14,7 +14,7 @@ import { signOut } from "../login/actions";
 import { applyAsAffiliate } from "./actions";
 import { affiliateStats } from "@/lib/affiliate-stats";
 import { getProducts } from "@/lib/catalogue";
-import { ProfileForm, RedeemForm } from "./forms";
+import { DeleteAccountForm, ProfileForm, RedeemForm } from "./forms";
 import { CopyButton } from "./copy-button";
 
 export const metadata: Metadata = { title: "My account", robots: { index: false } };
@@ -211,6 +211,11 @@ async function Account() {
           )}
         </section>
       </div>
+
+      <details className="mt-10 card p-6">
+        <summary className="cursor-pointer font-semibold">Delete my account</summary>
+        <DeleteAccountForm />
+      </details>
     </>
   );
 }
