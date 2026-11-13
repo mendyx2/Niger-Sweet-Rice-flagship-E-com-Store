@@ -1,16 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { updateOrderStatus } from "../actions";
 
-export function StatusForm({ orderId, options, rider }: {
-  orderId: string; options: { value: string; label: string }[]; rider: { name: string; phone: string };
+type Action = (prev: { ok: boolean; message: string } | null, fd: FormData) => Promise<{ ok: boolean; message: string } | null>;
+
+export function StatusForm({ orderId, options, rider, action: serverAction }: {
+  orderId: string; options: { value: string; label: string }[]; rider: { name: string; phone: string }; action: Action;
 }) {
-  const [state, action, pending] = useActionState(updateOrderStatus, null);
+  const [state, action, pending] = useActionState(serverAction, null);
   const [status, setStatus] = useState(options[0]?.value ?? "");
   return (
     <form action={action} className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4"
-      onSubmit={(e) => { if (status === "CANCELLED" && !confirm("Cancel this order? Paid orders must be refunded in Paystack.")) e.preventDefault(); }}>
+      onSubmit={(e) => { if (status === "CANCELLED" && !confirm("Cancel this order? If it was paid, the seller who received the transfer must refund the customer.")) e.preventDefault(); }}>
       <input type="hidden" name="orderId" value={orderId} />
       <label className="text-sm">
         <span className="block font-semibold">Move to</span>

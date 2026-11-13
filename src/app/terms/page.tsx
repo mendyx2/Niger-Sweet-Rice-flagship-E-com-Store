@@ -11,7 +11,8 @@ export default function TermsPage() {
       <p className="text-muted">The basics of buying from {site.name}. Please have these reviewed by a lawyer before launch.</p>
       <ul className="list-disc pl-6 space-y-2">
         <li><strong>Prices</strong> are in naira and include the rice only; delivery is shown separately before you pay.</li>
-        <li><strong>Payment</strong> is taken online through Paystack when you place your order. Pay-on-delivery isn&apos;t available.</li>
+        <li><strong>Payment</strong> is by bank transfer to the seller shown at checkout (Naija Sweet Rice HQ or the authorised distributor for your area), using your order number as the narration. Pay-on-delivery isn&apos;t available.</li>
+        <li><strong>Who you buy from:</strong> orders are fulfilled and delivered by the authorised distributor for your area, or by Naija Sweet Rice HQ. The seller is named on your order.</li>
         <li><strong>Stock</strong> is held for 30 minutes while you pay. Unpaid orders are cancelled automatically after that.</li>
         <li><strong>Nearby towns</strong> outside Abuja have a minimum order, shown at checkout.</li>
         <li><strong>Replacements:</strong> see our <Link href="/returns-policy" className="underline">bag replacement policy</Link>. We replace bags; we don&apos;t give cash refunds, except where an order can&apos;t be fulfilled.</li>

@@ -8,11 +8,12 @@ import { db } from "@/lib/db";
 import { TAGS } from "@/lib/catalogue";
 import { nairaToKobo } from "@/lib/money";
 import { checkOpsPassword, endOpsSession, requireOps, startOpsSession } from "@/lib/ops-auth";
-import { CheckoutError, cancelUnpaidOrder, createPendingOrder, markOrderPaid } from "@/lib/orders";
-import { notifyStatus } from "@/lib/notify";
-import { NEXT_STATUSES } from "@/lib/status-text";
+import { CheckoutError, createPendingOrder, markOrderPaid } from "@/lib/orders";
 import { sendSms } from "@/lib/sms";
 import { site } from "@/lib/site";
+import { HQ_ID, currentHqFees } from "@/lib/network";
+import { moveStock } from "@/lib/stock";
+import { changeOrderStatus, confirmTransferReceived, reportTransferNotReceived } from "@/lib/order-actions";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
 
@@ -38,12 +39,17 @@ export async function logout() {
 
 // ─── Prices & stock ─────────────────────────────────────────────────────────
 
-const PRICE_FIELDS = ["retailPriceKobo", "wholesalePriceKobo", "compareAtPriceKobo"] as const;
+const PRICE_FIELDS = ["retailPriceKobo", "wholesalePriceKobo", "compareAtPriceKobo", "minRetailKobo", "maxRetailKobo"] as const;
 const MAX_PRICE_KOBO = 10_000_000_00; // ₦10m sanity cap per bag
 
 export async function updatePrices(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireOps();
-  const variants = await db.variant.findMany();
+  const [variants, hqStock, fees] = await Promise.all([
+    db.variant.findMany(),
+    db.distributorStock.findMany({ where: { distributorId: HQ_ID } }),
+    currentHqFees(),
+  ]);
+  const stockBy = new Map(hqStock.map((x) => [x.variantId, x.onHand]));
   const errors: string[] = [];
   let changed = 0;
 
@@ -67,11 +73,28 @@ export async function updatePrices(_prev: FormState, formData: FormData): Promis
         }
       }
 
+      // HQ's own shelf stock: recorded as a movement so the stock history stays complete.
       const stockRaw = formData.get(`stockQty:${v.id}`);
       if (stockRaw !== null) {
         const stock = z.coerce.number().int().min(0).max(1_000_000).safeParse(stockRaw);
+        const current = stockBy.get(v.id) ?? 0;
         if (!stock.success) errors.push(`${v.sizeKg}kg: stock must be a whole number.`);
-        else if (stock.data !== v.stockQty) data.stockQty = stock.data;
+        else if (stock.data !== current) {
+          await moveStock(tx, { distributorId: HQ_ID, variantId: v.id, delta: stock.data - current, type: "MANUAL_SET", actor, note: "Set on HQ prices page" });
+          changed++;
+        }
+      }
+
+      // HQ's fixed fee per bag sold by distributors. A change starts a new rate; history is kept.
+      const feeRaw = formData.get(`hqFee:${v.id}`);
+      if (feeRaw !== null) {
+        const fee = nairaToKobo(String(feeRaw)) ?? 0;
+        if (Number.isNaN(fee) || fee < 0 || fee > MAX_PRICE_KOBO) errors.push(`${v.sizeKg}kg: "${feeRaw}" is not a valid fee.`);
+        else if (fee !== (fees.get(v.id) ?? 0)) {
+          await tx.hqFeeRate.create({ data: { variantId: v.id, feeKobo: fee, setBy: actor } });
+          await tx.auditLog.create({ data: { actor, action: "hqfee.change", entity: "Variant", entityId: v.id, before: { feeKobo: fees.get(v.id) ?? 0 }, after: { feeKobo: fee } } });
+          changed++;
+        }
       }
       const active = formData.get(`active:${v.id}`) === "on";
       if (active !== v.active) data.active = active;
@@ -81,6 +104,13 @@ export async function updatePrices(_prev: FormState, formData: FormData): Promis
       if (compare != null && retail != null && compare <= retail) {
         errors.push(`${v.sizeKg}kg: the "was" price must be higher than the retail price.`);
         delete data.compareAtPriceKobo;
+      }
+      const min = (data.minRetailKobo !== undefined ? data.minRetailKobo : v.minRetailKobo) as number | null;
+      const max = (data.maxRetailKobo !== undefined ? data.maxRetailKobo : v.maxRetailKobo) as number | null;
+      if (min != null && max != null && min > max) {
+        errors.push(`${v.sizeKg}kg: the lowest distributor price can't be above the highest.`);
+        delete data.minRetailKobo;
+        delete data.maxRetailKobo;
       }
 
       if (Object.keys(data).length) {
@@ -171,50 +201,18 @@ export async function updateOrderStatus(_prev: FormState, formData: FormData): P
   const actor = await requireOps();
   const parsed = statusInput.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Invalid request." };
-  const { orderId, status, riderName, riderPhone, note } = parsed.data;
+  const r = await changeOrderStatus({ ...parsed.data, actor });
+  if (r.ok) refresh();
+  return r;
+}
 
-  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
-  if (!order) return { ok: false, message: "Order not found." };
-  if (!NEXT_STATUSES[order.status].includes(status)) {
-    return { ok: false, message: `Can't change from ${order.status} to ${status}.` };
-  }
-
-  if (status === "CANCELLED" && order.status === "PENDING_PAYMENT") {
-    await cancelUnpaidOrder(order.id, note || "Cancelled by staff");
-  } else {
-    await db.$transaction(async (tx) => {
-      const n = await tx.order.updateMany({
-        where: { id: order.id, status: order.status },
-        data: { status, ...(status === "DELIVERED" ? { deliveredAt: new Date() } : {}) },
-      });
-      if (n.count !== 1) throw new Error("Order changed in the meantime; reload and try again.");
-      if (status === "CANCELLED") {
-        // Paid order cancelled: put bags back in stock and void its points. Refund from the Paystack dashboard.
-        for (const i of order.items) {
-          await tx.$executeRaw`UPDATE "Variant" SET "stockQty" = "stockQty" + ${i.qty} WHERE "id" = ${i.variantId}`;
-        }
-        await tx.pointsTransaction.updateMany({ where: { orderId: order.id, status: "PENDING" }, data: { status: "REVERSED" } });
-      }
-      if (status === "OUT_FOR_DELIVERY" && (riderName || riderPhone)) {
-        await tx.shipment.upsert({
-          where: { orderId: order.id },
-          create: { orderId: order.id, riderName: riderName || null, riderPhone: riderPhone || null },
-          update: { riderName: riderName || null, riderPhone: riderPhone || null },
-        });
-      }
-      await tx.orderStatusEvent.create({ data: { orderId: order.id, status, note: note || null, actor } });
-      if (status === "DELIVERED" && order.type === "REPLACEMENT") {
-        await tx.returnClaim.updateMany({ where: { replacementOrderId: order.id }, data: { status: "COMPLETED" } });
-      }
-      await tx.auditLog.create({
-        data: { actor, action: "order.status", entity: "Order", entityId: order.id, before: { status: order.status }, after: { status } },
-      });
-    });
-  }
-  const extra = status === "OUT_FOR_DELIVERY" && riderName ? `Rider: ${riderName}${riderPhone ? `, ${riderPhone}` : ""}.` : undefined;
-  await notifyStatus(order, status, extra);
-  refresh();
-  return { ok: true, message: `${order.number} updated.` };
+/** HQ can confirm or query a transfer on any order (e.g. HQ's own orders, or after a dispute). */
+export async function opsConfirmTransfer(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireOps();
+  const orderId = String(formData.get("orderId") ?? "");
+  const r = formData.get("decision") === "not_received" ? await reportTransferNotReceived(orderId, actor) : await confirmTransferReceived(orderId, actor);
+  if (r.ok) refresh();
+  return r;
 }
 
 // ─── Seller applications ────────────────────────────────────────────────────
@@ -273,6 +271,9 @@ export async function reviewClaim(_prev: FormState, formData: FormData): Promise
     replacement = await createPendingOrder({
       type: "REPLACEMENT",
       parentOrderId: order.id,
+      // The bag comes from the same distributor's stock; HQ replaces it in their next delivery.
+      distributorId: order.distributorId,
+      paymentMethod: "NONE",
       userId: claim.userId,
       customerName: order.customerName,
       contactPhone: order.contactPhone,
@@ -289,10 +290,10 @@ export async function reviewClaim(_prev: FormState, formData: FormData): Promise
       totalKobo: 0,
     });
   } catch (e) {
-    if (e instanceof CheckoutError) return { ok: false, message: `Not enough ${item.sizeKg}kg stock for the replacement. Update stock first.` };
+    if (e instanceof CheckoutError) return { ok: false, message: `The seller doesn't have a ${item.sizeKg}kg bag in stock for the replacement. Send them stock first.` };
     throw e;
   }
-  await markOrderPaid(replacement.number, { reference: `${replacement.number}_repl`, amountKobo: 0, currency: "NGN", source: actor });
+  await markOrderPaid(replacement.number, { source: actor });
   await db.$transaction([
     db.returnClaim.update({ where: { id: claim.id }, data: { status: "REPLACEMENT_SCHEDULED", resolutionNote: note, replacementOrderId: replacement.id } }),
     db.auditLog.create({ data: { actor, action: "claim.approved", entity: "ReturnClaim", entityId: claim.id, after: { replacement: replacement.number } } }),

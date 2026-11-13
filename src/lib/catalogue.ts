@@ -34,7 +34,8 @@ export async function getProducts(): Promise<CatalogueProduct[]> {
   const products = await db.product.findMany({
     where: { active: true },
     orderBy: { sortOrder: "asc" },
-    include: { variants: { where: { active: true }, orderBy: { sizeKg: "desc" } } },
+    // Static pages show HQ's prices and stock; the customer's area offer is fetched on the page.
+    include: { variants: { where: { active: true }, orderBy: { sizeKg: "desc" }, include: { stocks: { where: { distributorId: "hq" } } } } },
   });
   return products.map((p) => ({
     id: p.id,
@@ -48,7 +49,7 @@ export async function getProducts(): Promise<CatalogueProduct[]> {
       sizeKg: v.sizeKg,
       retailPriceKobo: v.retailPriceKobo,
       compareAtPriceKobo: v.compareAtPriceKobo,
-      available: Math.max(v.stockQty - v.reservedQty, 0),
+      available: Math.max((v.stocks[0]?.onHand ?? 0) - (v.stocks[0]?.held ?? 0), 0),
       isSampleSize: v.isSampleSize,
       imageUrl: v.imageUrl,
     })),

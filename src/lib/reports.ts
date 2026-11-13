@@ -11,6 +11,7 @@ export type ReportOrder = {
   couponId: string | null;
   referrerId: string | null;
   affiliateCode: string | null;
+  seller?: string;
   items: { sizeKg: number; qty: number; unitPriceKobo: number }[];
 };
 
@@ -57,6 +58,14 @@ export function buildReport(orders: ReportOrder[], from: Date, to: Date) {
     byChannel.set(c, r);
   }
 
+  const bySeller = new Map<string, { seller: string; orders: number; salesKobo: number }>();
+  for (const o of sales) {
+    const k = o.seller ?? "HQ";
+    const r = bySeller.get(k) ?? { seller: k, orders: 0, salesKobo: 0 };
+    r.orders++; r.salesKobo += goods(o);
+    bySeller.set(k, r);
+  }
+
   const byAffiliate = new Map<string, { code: string; orders: number; salesKobo: number }>();
   for (const o of sales) if (o.affiliateCode) {
     const r = byAffiliate.get(o.affiliateCode) ?? { code: o.affiliateCode, orders: 0, salesKobo: 0 };
@@ -88,6 +97,7 @@ export function buildReport(orders: ReportOrder[], from: Date, to: Date) {
     bySize: [...bySize.values()].sort((a, b) => b.sizeKg - a.sizeKg),
     byArea: [...byArea.values()].sort(byDesc),
     byChannel: [...byChannel.values()].sort(byDesc),
+    bySeller: [...bySeller.values()].sort(byDesc),
     byAffiliate: [...byAffiliate.values()].sort(byDesc).slice(0, 10),
   };
 }

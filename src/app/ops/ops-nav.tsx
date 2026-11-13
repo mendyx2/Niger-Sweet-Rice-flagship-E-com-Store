@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { logout } from "./actions";
 
-export function OpsNav({ current }: { current: "orders" | "returns" | "reports" | "prices" | "zones" | "partners" | "promotions" }) {
+export function OpsNav({ current }: { current: "orders" | "distributors" | "returns" | "reports" | "prices" | "zones" | "partners" | "promotions" }) {
   const tab = (href: string, label: string, key: string) => (
     <Link
       href={href}
@@ -15,10 +15,11 @@ export function OpsNav({ current }: { current: "orders" | "returns" | "reports" 
     <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
       <nav className="flex flex-wrap gap-2 text-sm" aria-label="Staff">
         {tab("/ops/orders", "Orders", "orders")}
+        {tab("/ops/distributors", "Distributors", "distributors")}
         {tab("/ops/returns", "Replacements", "returns")}
         {tab("/ops/reports", "Reports", "reports")}
         {tab("/ops/prices", "Prices & stock", "prices")}
-        {tab("/ops/zones", "Delivery zones", "zones")}
+        {tab("/ops/zones", "HQ delivery fees", "zones")}
         {tab("/ops/partners", "Sellers & affiliates", "partners")}
         {tab("/ops/promotions", "Promotions", "promotions")}
       </nav>

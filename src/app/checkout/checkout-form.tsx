@@ -10,6 +10,7 @@ import { ZoneSelect, type ZoneOption } from "@/components/zone-select";
 import { getCartQuote, type CartQuoteResult } from "../cart/actions";
 import { placeOrder, type CheckoutState } from "./actions";
 import { track } from "@/lib/analytics";
+import { setZone } from "@/lib/zone-store";
 
 export function CheckoutForm({
   zones, initialZoneId, initialCoupon, defaults,
@@ -20,7 +21,8 @@ export function CheckoutForm({
   defaults: { name: string; phone: string; email: string };
 }) {
   const lines = useCart();
-  const [zoneId, setZoneId] = useState(initialZoneId);
+  const [zoneId, setZoneIdState] = useState(initialZoneId);
+  const setZoneId = (z: string) => { setZoneIdState(z); setZone(z); };
   const [data, setData] = useState<CartQuoteResult | null>(null);
   const [, startTransition] = useTransition();
   const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, null);
@@ -37,7 +39,7 @@ export function CheckoutForm({
     if (begunValue != null) track("begin_checkout", { valueKobo: begunValue });
   }, [begunValue != null]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Payment page (Paystack, or the local test page) opens once the order is created.
+  // The order page (with the seller's bank details) opens once the order is created.
   useEffect(() => {
     if (state?.ok) window.location.assign(state.url);
   }, [state]);
@@ -116,6 +118,12 @@ export function CheckoutForm({
 
       <aside className="card p-5 sm:p-6 lg:sticky lg:top-24 space-y-5">
         <h2 className="font-display text-xl font-bold">Order summary</h2>
+        {data?.fulfiller && (
+          <p className="-mt-3 text-sm text-muted">
+            Sold and delivered by <strong className="text-foreground">{data.fulfiller.name}</strong>
+            {data.fulfiller.routedToHq && <span className="block text-xs">Your area&apos;s distributor is out of some of these sizes, so HQ will deliver.</span>}
+          </p>
+        )}
         <ul className="space-y-3">
           {data?.lines.map((l) => (
             <li key={l.variantId} className="flex items-center gap-3 text-sm">
@@ -138,7 +146,7 @@ export function CheckoutForm({
           {pending ? "Placing order…" : redirecting ? "Opening payment…" : q ? `Pay ${formatNaira(q.totalKobo)}` : "Pay"}
         </button>
         <p className="text-xs text-muted text-center">
-          You&apos;ll be taken to Paystack to pay by card, transfer or USSD. Your bags are held for 30 minutes while you pay.
+          Next you&apos;ll see the seller&apos;s bank details to pay by transfer. Your bags are held for 3 hours while you pay.
         </p>
         <Link href="/cart" className="block text-center text-sm text-brand underline">Back to cart</Link>
       </aside>

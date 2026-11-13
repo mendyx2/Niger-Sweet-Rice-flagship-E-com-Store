@@ -9,7 +9,7 @@ import { formatNgPhone } from "@/lib/phone";
 import { OrderTimeline } from "@/components/order-timeline";
 import { StatusPill } from "@/components/order-status";
 import { BagThumb } from "@/components/bag-thumb";
-import { ClearCart, PayNowButton } from "./client";
+import { OrderEffects, TransferPanel } from "./client";
 import { canClaimReplacement } from "@/lib/returns";
 
 const CLAIM_STATUS: Record<string, string> = {
@@ -41,26 +41,24 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
   const user = await requireUser(`/orders/${number}`);
   const order = await db.order.findUnique({
     where: { number },
-    include: { items: { include: { variant: true } }, events: { orderBy: { createdAt: "asc" } }, zone: true, shipment: true, returnClaims: true },
+    include: { items: { include: { variant: true } }, events: { orderBy: { createdAt: "asc" } }, zone: true, shipment: true, returnClaims: true, distributor: true },
   });
   if (!order || order.userId !== user.id) notFound();
 
   const isPickup = order.zone.kind === "PICKUP";
   const addr = order.addressSnapshot as { street?: string; landmark?: string | null; zoneName?: string };
-  const justPaid = order.status === "PAID" && isWithinMinutes(order.paidAt, 15);
-  const canPay = order.status === "PENDING_PAYMENT" && isFuture(order.reservedUntil);
+  const justPaid = order.status === "PAID" && isWithinMinutes(order.paidAt, 24 * 60);
+  const awaitingTransfer = order.status === "PENDING_PAYMENT" && order.paymentMethod === "BANK_TRANSFER" && !!order.payTo;
+  const seller = order.distributor.isHq ? "Naija Sweet Rice HQ" : order.distributor.name;
 
   return (
     <>
-      {/* Just paid: empty the cart and record the purchase (not on later visits). */}
-      {justPaid && (
-        <ClearCart number={order.number} totalKobo={order.totalKobo}
-          items={order.items.map((i) => ({ sku: i.variant.sku, sizeKg: i.sizeKg, priceKobo: i.unitPriceKobo, qty: i.qty }))} />
-      )}
+      <OrderEffects number={order.number} paid={!!order.paidAt} totalKobo={order.totalKobo}
+        items={order.items.map((i) => ({ sku: i.variant.sku, sizeKg: i.sizeKg, priceKobo: i.unitPriceKobo, qty: i.qty }))} />
       {justPaid && (
         <div className="mb-8 rounded-3xl bg-brand p-6 sm:p-8 text-white">
           <p className="text-cta font-semibold">Thank you{order.customerName ? `, ${order.customerName.split(" ")[0]}` : ""}!</p>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">Your order is confirmed</h1>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold mt-1">{order.totalKobo > 0 ? "Payment confirmed" : "Your order is confirmed"}</h1>
           <p className="mt-2 text-white/85">
             We&apos;ve sent an SMS to {formatNgPhone(order.contactPhone)}. We&apos;ll text you again when it&apos;s {isPickup ? "ready for pickup" : "on its way"}.
           </p>
@@ -75,12 +73,19 @@ async function Order({ params }: Pick<PageProps<"/orders/[number]">, "params">) 
         <StatusPill status={order.status} />
       </div>
 
-      {canPay && (
-        <div className="mt-6 rounded-2xl bg-cta/20 p-5">
-          <p className="font-semibold">Payment not completed yet</p>
-          <p className="text-sm mt-1">Your bags are held until {order.reservedUntil!.toLocaleTimeString("en-NG", { hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos" })}.</p>
-          <PayNowButton number={order.number} />
-        </div>
+      <p className="mt-1 text-sm text-muted">
+        Sold and delivered by <strong className="text-foreground">{seller}</strong>
+        {order.distributor.phone ? <> · <a className="underline" href={`tel:${order.distributor.phone}`}>{formatNgPhone(order.distributor.phone)}</a></> : null}
+      </p>
+
+      {awaitingTransfer && (
+        <TransferPanel
+          number={order.number}
+          amountKobo={order.totalKobo}
+          payTo={order.payTo as { distributorName?: string; bankName?: string | null; accountNumber?: string | null; accountName?: string | null }}
+          deadline={isFuture(order.reservedUntil) ? order.reservedUntil!.toISOString() : null}
+          markedPaid={!!order.customerMarkedPaidAt}
+        />
       )}
 
       <div className="mt-8 grid gap-6 md:grid-cols-[1fr_320px] items-start">

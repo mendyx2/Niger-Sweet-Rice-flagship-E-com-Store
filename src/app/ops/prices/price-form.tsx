@@ -7,6 +7,7 @@ import { updatePrices } from "../actions";
 type Row = {
   id: string; sizeKg: number; sku: string; retailPriceKobo: number | null; wholesalePriceKobo: number | null;
   compareAtPriceKobo: number | null; stockQty: number; reservedQty: number; active: boolean;
+  minRetailKobo: number | null; maxRetailKobo: number | null; hqFeeKobo: number;
 };
 
 const input = "w-28 rounded-lg border border-border bg-surface px-2 py-1.5 text-right";
@@ -23,7 +24,9 @@ export function PriceForm({ variants }: { variants: Row[] }) {
               <th className="p-3">Retail ₦</th>
               <th className="p-3">Wholesale ₦ <span className="font-normal">(sellers)</span></th>
               <th className="p-3">&ldquo;Was&rdquo; ₦ <span className="font-normal">(promo)</span></th>
-              <th className="p-3">Stock (bags)</th>
+              <th className="p-3">Distributor range ₦</th>
+              <th className="p-3">HQ fee / bag ₦</th>
+              <th className="p-3">HQ stock (bags)</th>
               <th className="p-3">On sale</th>
             </tr>
           </thead>
@@ -44,6 +47,17 @@ export function PriceForm({ variants }: { variants: Row[] }) {
                 <td className="p-3">
                   <input aria-label={`${v.sizeKg}kg was price`} name={`compareAtPriceKobo:${v.id}`} inputMode="decimal"
                     defaultValue={koboToNairaInput(v.compareAtPriceKobo)} className={input} />
+                </td>
+                <td className="p-3 whitespace-nowrap">
+                  <input aria-label={`${v.sizeKg}kg lowest distributor price`} name={`minRetailKobo:${v.id}`} inputMode="decimal"
+                    defaultValue={koboToNairaInput(v.minRetailKobo)} placeholder="min" className={input} />
+                  <span className="mx-1 text-muted">–</span>
+                  <input aria-label={`${v.sizeKg}kg highest distributor price`} name={`maxRetailKobo:${v.id}`} inputMode="decimal"
+                    defaultValue={koboToNairaInput(v.maxRetailKobo)} placeholder="max" className={input} />
+                </td>
+                <td className="p-3">
+                  <input aria-label={`${v.sizeKg}kg HQ fee per bag`} name={`hqFee:${v.id}`} inputMode="decimal"
+                    defaultValue={koboToNairaInput(v.hqFeeKobo)} className={input} />
                 </td>
                 <td className="p-3">
                   <input aria-label={`${v.sizeKg}kg stock`} name={`stockQty:${v.id}`} inputMode="numeric"

@@ -4,7 +4,7 @@ Online store for the Naija Sweet Rice brand: 50kg, 25kg, 5kg and 1kg bags, deliv
 nearby towns, purchase points → discount coupons, bag-replacement returns.
 
 - **Plan & roadmap:** [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)
-- **Proposed distributor network (not built):** [docs/DISTRIBUTOR_NETWORK_PLAN.md](docs/DISTRIBUTOR_NETWORK_PLAN.md)
+- **Distributor network:** [docs/DISTRIBUTOR_NETWORK_PLAN.md](docs/DISTRIBUTOR_NETWORK_PLAN.md)
 - **Stack:** Next.js 16 (React 19, App Router, Cache Components) · TypeScript · Tailwind CSS 4 · PostgreSQL + Prisma · Vitest
 
 ## Run it locally
@@ -19,10 +19,12 @@ npm run db:seed           # bag sizes + delivery zones (prices start empty)
 npm run dev               # http://localhost:3000
 ```
 
-Without `PAYSTACK_SECRET_KEY` and `TERMII_API_KEY`, local development shows the SMS login code on screen and
-uses a "simulate payment" page, so the whole buying flow can be tested. Production refuses both shortcuts.
+Customers pay by **bank transfer** to the seller for their area (a distributor, or HQ). Without `TERMII_API_KEY`,
+local development shows the SMS login code on screen (never in production).
 
-Staff screens live at **/ops** (sign in with `OPS_PASSWORD`):
+Staff screens live at **/ops** (sign in with `OPS_PASSWORD`). Distributors use **/partner** (phone sign-in; HQ adds their number in `/ops/distributors`).
+
+- **/ops/distributors**: add distributors, set their bank account (HQ only), areas, logins, send stock, approve stock adjustments, see their month.
 
 - **/ops/orders**: move paid orders to preparing → out for delivery (with rider) → delivered. Each change texts the customer.
 - **/ops/returns**: review bag-replacement requests with photos; approving creates a free replacement order.

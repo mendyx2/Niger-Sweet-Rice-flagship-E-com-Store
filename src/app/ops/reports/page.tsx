@@ -62,13 +62,13 @@ async function Reports({ searchParams }: Pick<PageProps<"/ops/reports">, "search
 
   const orders = await db.order.findMany({
     where: { paidAt: { gte: new Date(from.toISOString().slice(0, 10) + "T00:00:00+01:00") }, status: { not: "CANCELLED" } },
-    include: { items: true, zone: { select: { name: true } }, affiliate: { select: { code: true } } },
+    include: { items: true, zone: { select: { name: true } }, affiliate: { select: { code: true } }, distributor: { select: { name: true, isHq: true } } },
   });
   const r = buildReport(
     orders.map((o) => ({
       type: o.type, userId: o.userId, paidAt: o.paidAt!, subtotalKobo: o.subtotalKobo, discountKobo: o.discountKobo,
       deliveryFeeKobo: o.deliveryFeeKobo, zoneName: o.zone.name, couponId: o.couponId, referrerId: o.referrerId,
-      affiliateCode: o.affiliate?.code ?? null, items: o.items,
+      affiliateCode: o.affiliate?.code ?? null, items: o.items, seller: o.distributor.isHq ? "HQ" : o.distributor.name,
     })),
     from, to,
   );
@@ -123,6 +123,8 @@ async function Reports({ searchParams }: Pick<PageProps<"/ops/reports">, "search
       </section>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <Table title="By seller (online orders)" rows={r.bySeller} empty="No sales yet."
+          cols={[{ head: "Seller", cell: (x) => x.seller }, { head: "Orders", cell: (x) => x.orders }]} />
         <Table title="By bag size (before discounts)" rows={r.bySize} empty="No sales yet."
           cols={[{ head: "Bag", cell: (x) => `${x.sizeKg}kg` }, { head: "Bags", cell: (x) => x.bags.toLocaleString("en-NG") }]} />
         <Table title="Where sales came from" rows={r.byChannel} empty="No sales yet."

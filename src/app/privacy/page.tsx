@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-6 mt-2 space-y-1">
           <li><strong>Account:</strong> your phone number, and your name and email if you add them.</li>
           <li><strong>Orders:</strong> delivery address, landmark, items, amounts and order history.</li>
-          <li><strong>Payments:</strong> handled by Paystack. We never see or store your card details.</li>
+          <li><strong>Payments:</strong> you pay by bank transfer to the seller. We record that the transfer was confirmed, not your bank details.</li>
           <li><strong>Replacement requests:</strong> the photos you upload. We remove location data from them.</li>
           <li><strong>Website use:</strong> only if you accept analytics cookies (Google Analytics, Meta Pixel).</li>
         </ul>
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
       </section>
       <section>
         <h2 className="font-display text-xl font-bold text-brand">Who we share it with</h2>
-        <p className="mt-2">Only the services we need to run the store: Paystack (payments), our SMS provider (codes and updates), delivery partners (name, phone and address for your delivery) and, with your consent, Google and Meta (analytics). We don&apos;t sell your data.</p>
+        <p className="mt-2">Only who we need to run the store: the authorised distributor who fulfils your order (your name, phone, address and order), our SMS provider (codes and updates), delivery partners (name, phone and address for your delivery) and, with your consent, Google and Meta (analytics). We don&apos;t sell your data.</p>
       </section>
       <section>
         <h2 className="font-display text-xl font-bold text-brand">Your rights</h2>

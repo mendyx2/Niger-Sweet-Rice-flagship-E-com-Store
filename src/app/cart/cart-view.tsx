@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { cart, useCart } from "@/lib/cart-store";
+import { setZone, useZone } from "@/lib/zone-store";
 import { formatNaira } from "@/lib/money";
 import { BagThumb } from "@/components/bag-thumb";
 import { MinusIcon, PlusIcon } from "@/components/icons";
@@ -10,18 +11,14 @@ import { OrderSummary } from "@/components/order-summary";
 import { ZoneSelect, type ZoneOption } from "@/components/zone-select";
 import { getCartQuote, type CartQuoteResult } from "./actions";
 
-const ZONE_KEY = "nsr_zone";
 const noopSubscribe = () => () => {};
-const readZone = () => {
-  try { return localStorage.getItem(ZONE_KEY) ?? ""; } catch { return ""; }
-};
 
 export function CartView({ zones }: { zones: ZoneOption[] }) {
   const lines = useCart();
   const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
-  const storedZone = useSyncExternalStore(noopSubscribe, readZone, () => "");
-  const [chosenZone, setChosenZone] = useState<string | null>(null);
-  const zoneId = chosenZone ?? (zones.some((z) => z.id === storedZone) ? storedZone : "");
+  // Shared with the header's area picker and product pages.
+  const storedZone = useZone();
+  const zoneId = zones.some((z) => z.id === storedZone) ? storedZone : "";
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState("");
   const [data, setData] = useState<CartQuoteResult | null>(null);
@@ -40,8 +37,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
   }, [key]);
 
   const chooseZone = (z: string) => {
-    setChosenZone(z);
-    try { localStorage.setItem(ZONE_KEY, z); } catch {}
+    setZone(z);
   };
 
   const subtotal = useMemo(
@@ -105,6 +101,14 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
           <label htmlFor="zone" className="text-sm font-semibold">Delivery area</label>
           <ZoneSelect zones={zones} value={zoneId} onChange={chooseZone} />
           {data?.zone?.terms && <p className="mt-2 text-xs text-muted">{data.zone.terms}</p>}
+          {zoneId && data?.fulfiller && (
+            <p className="mt-2 text-sm">
+              Delivered by <strong>{data.fulfiller.name}</strong>
+              {data.fulfiller.routedToHq && (
+                <span className="block text-xs text-muted">Your area&apos;s distributor is out of some of these sizes, so HQ will deliver this order.</span>
+              )}
+            </p>
+          )}
         </div>
 
         <form
@@ -145,7 +149,7 @@ export function CartView({ zones }: { zones: ZoneOption[] }) {
         ) : (
           <button disabled className="btn-cta w-full text-lg">{zoneId ? (pending ? "Updating…" : "Checkout") : "Choose your area to continue"}</button>
         )}
-        <p className="text-xs text-muted text-center">Secure payment by card, bank transfer or USSD via Paystack.</p>
+        <p className="text-xs text-muted text-center">Pay by bank transfer straight to your local seller after you place the order.</p>
       </aside>
     </div>
   );

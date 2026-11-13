@@ -28,6 +28,7 @@ export function SiteFooter() {
           <li><Link className="hover:text-white hover:underline" href="/returns-policy">Bag replacement policy</Link></li>
           <li><Link className="hover:text-white hover:underline" href="/register?as=seller">Sell / resell our rice</Link></li>
           <li><Link className="hover:text-white hover:underline" href="/faq">FAQ</Link></li>
+          <li><Link className="hover:text-white hover:underline" href="/partner">Distributor login</Link></li>
         </ul>
       </div>
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 pb-8 text-xs text-white/70">

@@ -1,4 +1,4 @@
-# Distributor Network: Plan (not built yet)
+# Distributor Network: Plan and progress
 
 **Goal:** one Naija Sweet Rice website for the whole network. Each order goes to the distributor who covers the customer's area. That distributor delivers, sets the delivery fee, and is paid directly by the customer. The producer (HQ) sees every distributor's sales, supplies their stock, and tracks stock movement, mirrored to a Google Sheet.
 
@@ -194,11 +194,34 @@ DemandSignal       zone/area, phone?, createdAt
 
 ---
 
-## 11. Still to confirm
+## 11. Progress (13 Nov 2026)
 
-1. **HQ's own orders:** bank transfer like everyone else (recommended), or keep Paystack for HQ only?
-2. **Per-bag fee:** one amount for every bag, or a different amount per size (e.g. 50kg vs 1kg)? Recommended: per size.
-3. **Payment hold time** for transfers: 3 hours recommended.
-4. **Statement period:** monthly (recommended) or weekly?
-5. **Google Sheet:** confirm it's a view-only mirror (recommended); which Google account should own it?
-6. **Abuja distributors:** how many at launch, and which areas does each cover? A simple list is enough to set them up.
+Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-hour payment hold, monthly statements, first distributor **Gova Max Ltd** (Laura Internal Market, Abuja). Google account for the sheet: to be added later.
+
+**Built and tested end to end**
+- **D1:** distributors (HQ is one), logins with owner/staff roles, one distributor per area, price range and per-bag HQ fee per size (with history), per-distributor prices, delivery fees and stock, and a stock movement history. Existing stock and orders moved to HQ.
+- **D2:** area picker in the header. Product pages, cart and checkout use the area's distributor, falling back to HQ when it is short. Bank-transfer checkout: seller's bank details, exact amount, order number as narration, "I've made the transfer", 3-hour hold with a reminder at 2 hours, auto-cancel, and an HQ alert if a seller doesn't confirm in time. Paystack removed.
+- **D3 partner portal (`/partner`):**
+  - orders: confirm payment received / not received, then fulfil;
+  - stock: confirm deliveries (shortfalls reported to HQ), report damage or count differences (applied after HQ approval);
+  - shop sales, prices within range and delivery fees (owners only);
+  - "My numbers": monthly sales and the statement with HQ;
+  - staff, with distributors seeing only their own numbers.
+- **D4 (most):** `/ops/distributors`:
+  - add distributors and edit their details;
+  - bank details, which only HQ can change (logged, distributor alerted by SMS);
+  - areas, logins, dispatching stock from HQ, approving stock adjustments, stock history, and the current month's statement.
+
+  The HQ orders screen gained a seller filter and transfer confirmation, and reports gained "By seller".
+- **D5 (part):** the monthly statement per distributor: HQ fee on bags sold online − HQ-funded discounts = net owed, plus bags HQ must replace (samples and replacements given from the distributor's stock).
+
+**Not built yet**
+- **Google stock depletion sheet:** waiting for the business Google account. Stock movements already record a "synced" marker, ready for this.
+- **Distributor-initiated restock requests** (request → HQ invoice → paid → dispatch). Today HQ dispatches directly from `/ops`.
+- HQ marking monthly statements as settled, and a statement history.
+- **D6:** public distributor pages with share links and QR codes; distributor-only promo codes.
+
+## 12. Still to confirm
+
+1. The Google account that will own the stock depletion sheet.
+2. Gova Max Ltd's areas, bank account and owner phone number (HQ can enter them in `/ops/distributors`).

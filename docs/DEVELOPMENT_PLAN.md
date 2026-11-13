@@ -391,7 +391,7 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 - Hardening: rate limits shared through Upstash Redis when configured; points expire after 12 months (oldest spent first); "come back" ₦1,000 coupon by SMS 3 days after a sample is delivered; customers can delete their account
 
 **Launch checklist (needs the business):**
-1. Paystack live keys + webhook URL `https://<domain>/api/webhooks/paystack`
+1. Bank account details for HQ and each distributor (entered in `/ops/distributors`); payments are by bank transfer, Paystack has been removed
 2. Termii account + sender ID registration
 3. Domain, hosting (Vercel), Postgres (Neon) and, if more than one server, Upstash Redis
 4. Scheduled call to `/api/cron/release-reservations` every 10 minutes with `CRON_SECRET`
@@ -400,3 +400,5 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 7. Confirmed prices, stock and delivery fees in `/ops`
 8. GA4 measurement ID and Meta Pixel ID (optional)
 9. Lawyer review of privacy policy and terms
+
+**Update, 13 Nov 2026: distributor network.** Payments changed from Paystack to bank transfer straight to the seller (HQ or the area's distributor). See [DISTRIBUTOR_NETWORK_PLAN.md](DISTRIBUTOR_NETWORK_PLAN.md) for what was built.

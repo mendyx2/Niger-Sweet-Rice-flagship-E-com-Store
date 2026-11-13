@@ -8,7 +8,9 @@ import { normalizeNgPhone } from "@/lib/phone";
 import { deliveryFeeKobo } from "@/lib/pricing";
 import { sampleAddressKey } from "@/lib/samples";
 import { CheckoutError, cancelUnpaidOrder, createPendingOrder, markOrderPaid } from "@/lib/orders";
-import { startPayment } from "@/lib/payment-start";
+import { offersForZone, payToSnapshot } from "@/lib/network";
+import { PAYMENT_HOLD_HOURS } from "@/lib/network-rules";
+import { notifyNewTransferOrder } from "@/lib/notify";
 import { rateLimit } from "@/lib/rate-limit";
 
 export type SampleState = { ok: false; error: string } | { ok: true; url: string } | null;
@@ -44,15 +46,25 @@ export async function requestSample(_prev: SampleState, formData: FormData): Pro
   if (existing) return { ok: false, error: "A free sample has already been requested for this account or address." };
 
   const variant = await db.variant.findFirst({ where: { isSampleSize: true, active: true } });
-  if (!variant || variant.stockQty - variant.reservedQty < 1) {
-    return { ok: false, error: "Free samples are out of stock right now. Please check back soon." };
-  }
+  if (!variant) return { ok: false, error: "Free samples aren't available right now. Please check back soon." };
 
-  const fee = deliveryFeeKobo(zone, variant.sizeKg);
+  // The area's distributor sends the sample if it has one in stock; otherwise HQ does.
+  const { owner, hq } = await offersForZone(zone.id);
+  const hasSample = (o: typeof hq | null) => !!o?.ready && !!o.fee && (o.variants.find((v) => v.variantId === variant.id)?.available ?? 0) >= 1;
+  const from = owner && !owner.isHq && hasSample(owner) ? owner : hasSample(hq) ? hq : null;
+  if (!from) return { ok: false, error: "Free samples are out of stock right now. Please check back soon." };
+
+  const distributor = await db.distributor.findUniqueOrThrow({ where: { id: from.distributorId } });
+  const fee = deliveryFeeKobo({ ...zone, ...from.fee!, active: true }, variant.sizeKg);
+  const payTo = payToSnapshot(distributor);
   let order;
   try {
     order = await createPendingOrder({
       type: "SAMPLE",
+      distributorId: distributor.id,
+      routedToHq: !!owner && !owner.isHq && from.isHq,
+      paymentMethod: fee === 0 ? "NONE" : "BANK_TRANSFER",
+      payTo: fee === 0 ? null : payTo,
       userId: user.id,
       customerName: f.name,
       contactPhone: phone,
@@ -85,13 +97,9 @@ export async function requestSample(_prev: SampleState, formData: FormData): Pro
   if (!user.name) await db.user.update({ where: { id: user.id }, data: { name: f.name } });
 
   if (fee === 0) {
-    await markOrderPaid(order.number, { reference: `${order.number}_free`, amountKobo: 0, currency: "NGN", source: "free-sample" });
-    return { ok: true, url: `/orders/${order.number}` };
+    await markOrderPaid(order.number, { source: "free-sample" });
+  } else {
+    await notifyNewTransferOrder({ ...order, payTo }, distributor.phone, PAYMENT_HOLD_HOURS);
   }
-  const pay = await startPayment(order);
-  if (!pay.ok) {
-    await cancelUnpaidOrder(order.id, "Payment could not be started");
-    return { ok: false, error: pay.error };
-  }
-  return { ok: true, url: pay.url };
+  return { ok: true, url: `/orders/${order.number}` };
 }

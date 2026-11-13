@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { openAreaPicker, useZone } from "@/lib/zone-store";
+import { getAreaOffers } from "./actions";
 import { toItem, track } from "@/lib/analytics";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { CatalogueVariant } from "@/lib/catalogue";
@@ -10,7 +12,7 @@ import { Price, SaleBadge } from "@/components/price";
 import { CheckIcon, MinusIcon, PlusIcon } from "@/components/icons";
 
 export function SizePicker({
-  variants,
+  variants: hqVariants,
   whatsapp,
   productName,
 }: {
@@ -23,6 +25,22 @@ export function SizePicker({
   const pathname = usePathname();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState<string | null>(null);
+
+  // Prices and stock follow the customer's area (its distributor, or HQ). Until an area is chosen, HQ's are shown.
+  const zoneId = useZone();
+  const [area, setArea] = useState<{ zoneId: string; data: Awaited<ReturnType<typeof getAreaOffers>> } | null>(null);
+  const [, startTransition] = useTransition();
+  useEffect(() => {
+    if (!zoneId) return;
+    startTransition(async () => setArea({ zoneId, data: await getAreaOffers(zoneId) }));
+  }, [zoneId]);
+  const areaData = area && area.zoneId === zoneId ? area.data : null;
+  const variants = hqVariants.map((v) => {
+    const o = areaData?.offers.find((x) => x.variantId === v.id);
+    return o
+      ? { ...v, retailPriceKobo: o.retailPriceKobo, compareAtPriceKobo: o.compareAtPriceKobo, available: o.available, seller: o.seller }
+      : { ...v, seller: null as string | null };
+  });
 
   const requested = Number(search.get("size"));
   const selected = variants.find((v) => v.sizeKg === requested) ?? variants[0];
@@ -88,6 +106,21 @@ export function SizePicker({
           <Price kobo={selected.retailPriceKobo} compareAt={selected.compareAtPriceKobo} sizeKg={selected.sizeKg} size="lg" />
           <SaleBadge kobo={selected.retailPriceKobo} compareAt={selected.compareAtPriceKobo} />
         </div>
+        <p className="mt-2 text-sm text-muted">
+          {zoneId && areaData ? (
+            <>
+              {selected.seller ? <>Sold by <strong className="text-foreground">{selected.seller}</strong> · </> : null}
+              Delivering to {areaData.zoneName}{" "}
+              <button type="button" onClick={openAreaPicker} className="font-semibold text-brand underline">Change</button>
+            </>
+          ) : zoneId ? (
+            "Checking prices for your area…"
+          ) : (
+            <button type="button" onClick={openAreaPicker} className="font-semibold text-brand underline">
+              Choose your area to see your local price
+            </button>
+          )}
+        </p>
         {priced && (
           <p className={`mt-2 text-sm font-medium ${selected.available > 0 ? "text-success" : "text-danger"}`}>
             {selected.available > 10 ? "In stock" : selected.available > 0 ? `Only ${selected.available} left` : "Out of stock"}

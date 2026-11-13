@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { requireOps } from "@/lib/ops-auth";
+import { HQ_ID, currentHqFees } from "@/lib/network";
 import { formatNaira } from "@/lib/money";
 import { OpsNav } from "../ops-nav";
 import { PriceForm } from "./price-form";
@@ -15,9 +16,13 @@ export default function PricesPage() {
 
 async function Prices() {
   await requireOps();
-  const [products, history] = await Promise.all([
-    db.product.findMany({ include: { variants: { orderBy: { sizeKg: "desc" } } }, orderBy: { sortOrder: "asc" } }),
+  const [products, history, fees] = await Promise.all([
+    db.product.findMany({
+      include: { variants: { orderBy: { sizeKg: "desc" }, include: { stocks: { where: { distributorId: HQ_ID } } } } },
+      orderBy: { sortOrder: "asc" },
+    }),
     db.priceChange.findMany({ take: 15, orderBy: { createdAt: "desc" }, include: { variant: true } }),
+    currentHqFees(),
   ]);
 
   return (
@@ -25,8 +30,9 @@ async function Prices() {
       <OpsNav current="prices" />
       <h1 className="font-display text-2xl font-bold">Prices &amp; stock</h1>
       <p className="text-muted text-sm mt-1">
-        Enter prices in naira. Leave the retail price empty to show &ldquo;Price coming soon&rdquo;. Changes appear
-        on the shop as soon as you save.
+        Enter amounts in naira. <strong>Retail, wholesale, &ldquo;was&rdquo; price and stock</strong> are HQ&apos;s own (flagship store).
+        <strong>Distributor range</strong> is the lowest and highest retail price distributors may set, and the <strong>HQ fee</strong> is
+        what HQ charges per bag a distributor sells online (new rates apply to new orders only).
       </p>
       {products.map((p) => (
         <section key={p.id} className="mt-6">
@@ -35,7 +41,8 @@ async function Prices() {
             variants={p.variants.map((v) => ({
               id: v.id, sizeKg: v.sizeKg, sku: v.sku, retailPriceKobo: v.retailPriceKobo,
               wholesalePriceKobo: v.wholesalePriceKobo, compareAtPriceKobo: v.compareAtPriceKobo,
-              stockQty: v.stockQty, reservedQty: v.reservedQty, active: v.active,
+              stockQty: v.stocks[0]?.onHand ?? 0, reservedQty: v.stocks[0]?.held ?? 0, active: v.active,
+              minRetailKobo: v.minRetailKobo, maxRetailKobo: v.maxRetailKobo, hqFeeKobo: fees.get(v.id) ?? 0,
             }))}
           />
         </section>

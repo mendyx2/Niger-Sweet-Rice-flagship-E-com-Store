@@ -21,7 +21,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How do I pay?",
-    a: "Online by card, bank transfer or USSD through Paystack. We don't take pay-on-delivery at the moment.",
+    a: "By bank transfer to the seller shown on your order (your local distributor or Naija Sweet Rice HQ), using your order number as the narration. We don't take pay-on-delivery at the moment.",
   },
   {
     q: "What if my bag arrives damaged?",

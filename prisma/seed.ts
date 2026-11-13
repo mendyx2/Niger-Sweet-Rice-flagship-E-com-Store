@@ -11,10 +11,10 @@ const db = new PrismaClient();
 
 const SIZES = [
   // One photo for both big bags until a 50kg photo is available (the bag pictured is labelled 25kg).
-  { sizeKg: 50, stockQty: 0, isSampleSize: false, imageUrl: "/images/sweet-rice-25kg.jpg" },
-  { sizeKg: 25, stockQty: 0, isSampleSize: false, imageUrl: "/images/sweet-rice-25kg.jpg" },
-  { sizeKg: 5, stockQty: 0, isSampleSize: false, imageUrl: "/images/sweet-rice-5kg.jpg" },
-  { sizeKg: 1, stockQty: 0, isSampleSize: true, imageUrl: "/images/sweet-rice-1kg.jpg" },
+  { sizeKg: 50, isSampleSize: false, imageUrl: "/images/sweet-rice-25kg.jpg" },
+  { sizeKg: 25, isSampleSize: false, imageUrl: "/images/sweet-rice-25kg.jpg" },
+  { sizeKg: 5, isSampleSize: false, imageUrl: "/images/sweet-rice-5kg.jpg" },
+  { sizeKg: 1, isSampleSize: true, imageUrl: "/images/sweet-rice-1kg.jpg" },
 ];
 
 const ABUJA_AREAS = [
@@ -57,6 +57,29 @@ async function main() {
       await db.variant.updateMany({
         where: { productId: product.id, sizeKg: s.sizeKg, imageUrl: null },
         data: { imageUrl: s.imageUrl },
+      });
+    }
+  }
+
+  // Distributor network: HQ (the flagship, fallback for every area) and the first Abuja distributor.
+  // Bank details and areas are entered by HQ staff in /ops/distributors.
+  await db.distributor.upsert({
+    where: { id: "hq" },
+    update: {},
+    create: { id: "hq", name: "Naija Sweet Rice HQ", slug: "hq", isHq: true },
+  });
+  await db.distributor.upsert({
+    where: { slug: "gova-max-ltd" },
+    update: {},
+    create: { name: "Gova Max Ltd", slug: "gova-max-ltd", address: "Laura Internal Market, Abuja FCT" },
+  });
+  const variants = await db.variant.findMany({ where: { productId: product.id } });
+  for (const d of await db.distributor.findMany()) {
+    for (const v of variants) {
+      await db.distributorStock.upsert({
+        where: { distributorId_variantId: { distributorId: d.id, variantId: v.id } },
+        update: {},
+        create: { distributorId: d.id, variantId: v.id },
       });
     }
   }
