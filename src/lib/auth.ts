@@ -56,10 +56,7 @@ export const hasRole = (u: Pick<User, "roles">, r: Role) => u.roles.includes(r);
 export const isApprovedSeller = (u: CurrentUser) => u.sellerProfile?.status === "APPROVED";
 
 /** Only allow same-site relative redirects after login (prevents open redirects). */
-export function safeNext(next: string | null | undefined, fallback = "/account"): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return fallback;
-  return next;
-}
+export { safeNext } from "./safe-next";
 
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export function makeReferralCode(name: string | null): string {

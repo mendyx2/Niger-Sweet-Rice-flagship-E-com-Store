@@ -152,3 +152,14 @@ Do one real order end to end, with a 1kg bag or a small order:
 3. The distributor taps **Payment received**, then marks it out for delivery and delivered. Check the customer gets the SMS updates.
 4. Check `/ops/reports`, the distributor's **My numbers**, and (if set up) the Google sheet.
 5. Try a replacement request on that order and approve it.
+
+## Security review before launch (13 Nov 2026)
+
+Checked: every server action and API route checks who is signed in; distributors can only touch their own orders, stock, restocks, codes and staff; bank details and the HQ team are owner-only; claim photos are visible only to the customer and HQ; Telegram webhook and housekeeping secrets are compared in constant time; uploads are re-encoded with size and pixel limits; sign-in codes appear on screen only in development without an SMS key; the test-only rate-limit bypass is off in production.
+
+Fixed in this review:
+- Rate limits used the visitor-supplied first `X-Forwarded-For` entry, so they could be dodged. Now they use the IP set by the host.
+- The "go back to where you were" link after sign-in could be tricked into leaving the site (`/\t/evil.com`). It now only allows same-site paths. Unit tests cover this.
+- Distributor, account, order and checkout pages are now sent with `Cache-Control: private, no-store`, like /ops already was.
+
+Known and accepted: `npm audit` reports a denial-of-service issue in `deepmerge-ts`, used only by the Prisma command-line tool to read its own config. Visitors can't reach it. The fix needs a major Prisma upgrade (6 → 7), which should be planned separately.

@@ -54,7 +54,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      { source: "/ops/:path*", headers: [{ key: "Cache-Control", value: "private, no-store" }] },
+      // Signed-in pages show personal or business data: never keep a copy in a shared or back-button cache.
+      ...["/ops/:path*", "/partner/:path*", "/account/:path*", "/orders/:path*", "/checkout"].map((source) => ({
+        source,
+        headers: [{ key: "Cache-Control", value: "private, no-store" }],
+      })),
     ];
   },
 };
