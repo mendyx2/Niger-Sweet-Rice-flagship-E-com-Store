@@ -1,175 +1,204 @@
 # Distributor Network: Plan (not built yet)
 
-**Goal:** turn the single Abuja store into a network. Customers anywhere order on one Naija Sweet Rice website. Each order goes to the distributor who covers the customer's area. That distributor delivers, sets and keeps the delivery fee, and receives the customer's payment. The producer sees every distributor's sales and manages their stock.
+**Goal:** one Naija Sweet Rice website for the whole network. Each order goes to the distributor who covers the customer's area. That distributor delivers, sets the delivery fee, and is paid directly by the customer. The producer (HQ) sees every distributor's sales, supplies their stock, and tracks stock movement, mirrored to a Google Sheet.
 
-Items marked **[DECISION]** need your answer before building (collected in §10).
+Open points still to confirm are marked **[CONFIRM]** and listed in §11.
 
 ---
 
-## 1. How it works for each person
+## 1. Decisions (13 Nov 2026)
+
+| # | Topic | Decision | What it means for the build |
+|---|---|---|---|
+| 1 | Stock ownership | **Distributors buy stock from HQ.** Retail prices set by the distributor **within a range HQ sets** | Restock orders, HQ invoices and dispatches, distributor confirms receipt. HQ sets min/max retail price per bag size |
+| 2 | Payments | **No Paystack. Customers pay the distributor directly** using the distributor's bank details shown on the platform. **HQ charges a fixed fee per bag**, which HQ can change at any time | Bank-transfer checkout. The distributor confirms payment in their portal. A per-bag fee is recorded on each order and totalled on a statement |
+| 3 | Territories | **One distributor per area** | Each delivery area has exactly one owner |
+| 4 | Out of stock | **Order goes to HQ** to fulfil; HQ restocks or reassigns | Automatic fallback to HQ + low-stock alert to HQ; HQ can reassign orders |
+| 5 | Network costs | **HQ pays** for network-wide promotions, points coupons, free samples and replacement bags, and **builds the cost into the per-unit price** | HQ-funded discounts on a distributor's order are credited back to that distributor on the statement; replacement and sample bags are replaced in the next stock delivery |
+| 6 | Stock records | **Google Sheet "stock depletion" log** of all stock movement | Every stock movement is also written to a Google Sheet automatically |
+| 7 | First location | **Abuja** | Distributors cover Abuja districts; nearby towns can be assigned later |
+| 8 | Walk-in sales | **Recorded on the platform** | Simple "record a shop sale" screen in the partner portal |
+| 9 | Visibility | **Distributors see only their own numbers** | No rankings or network totals in the partner portal |
+
+---
+
+## 2. How it works
 
 **Customer**
-1. Opens the site and picks their area once ("Delivering to: Gwarinpa, Abuja"). The site remembers it.
-2. Sees the bag sizes, prices, delivery fee and stock **of the distributor who covers that area**, plus "Delivered by *Distributor name*".
-3. Pays online. The money goes straight to that distributor's bank account (minus the producer's share, if any; see §4).
-4. Gets SMS updates and tracks the order as today. Replacement claims go to the same distributor.
+1. Picks their area once ("Delivering to: Gwarinpa"). The site remembers it.
+2. Sees the bag sizes, prices, stock and delivery fee of **the distributor for that area**, with "Delivered by *Distributor*". If that distributor doesn't have the bags, **HQ** serves the order instead and the page says "Delivered by Naija Sweet Rice HQ".
+3. Places the order and sees the **distributor's bank account details**, the **exact amount**, and the **order number to use as the transfer narration**. They get the same details by SMS.
+4. Taps "I've paid". The distributor checks their bank alert and confirms. The order becomes Paid, and the customer gets an SMS and tracking as today.
+5. Unpaid orders are cancelled automatically after the hold time (see §4) and the stock is released.
 
-**Distributor**
-- Has a login to a **Partner portal** (`/partner`) where they:
-  - get new orders (SMS/WhatsApp alert) and move them through preparing → out for delivery → delivered;
-  - set **their own delivery fees and minimum orders** for the areas they cover;
-  - see their stock, confirm stock deliveries from the producer, record damaged or adjusted stock;
-  - record walk-in shop sales so their stock stays accurate **[recommended]**;
-  - see their sales, payouts (from Paystack) and customer reviews;
-  - add their own staff (phone login, limited access).
-- Gets a public page, `/distributors/<name>`, with their areas, address, hours and phone. It also has a shareable link and a QR code for their shop that sets the customer's area to theirs.
+**Distributor** (partner portal, `/partner`)
+- **Orders:** new-order SMS/WhatsApp alerts; **confirm payment received** (or mark not received); then prepare → out for delivery (rider details) → delivered.
+- **Prices:** set retail prices per bag size, within HQ's range.
+- **Delivery:** set their delivery fee and minimum order for their areas.
+- **Stock:** see stock on hand; place **restock orders** with HQ; confirm stock received (and report shortages or damage); submit stock counts.
+- **Shop sales:** record walk-in sales (bags, price, payment method) so stock stays accurate.
+- **Statement:** see bags sold, HQ fees owed, credits from HQ (promo discounts, replacement and sample bags), and the net amount.
+- **Their own numbers only**: sales, orders, delivery times, complaints.
+- **Bank details:** maintained by HQ (see §5 on fraud prevention).
+- **Staff:** add staff with phone login and limited permissions.
 
-**Producer (you)**
-- Adds distributors, assigns their areas, and connects their bank account for payouts.
-- Sees a **network dashboard**: sales, orders, kg sold, stock on hand, days of stock left, delivery speed and complaint rate for each distributor and in total.
-- Manages inventory: sends stock to distributors, sees sell-through, gets low-stock alerts and restock suggestions, and approves stock adjustments.
-- Still controls the brand: products, photos, pricing rules, promotions, points and the replacement policy.
-- The Abuja flagship becomes **"HQ", just another distributor** that you run, so everything built so far keeps working.
+**HQ / producer** (existing `/ops`, extended)
+- **Distributors:** add a distributor, assign areas, record and verify bank details, suspend.
+- **Rules:** set the **price range** and the **per-bag fee** per bag size, both with effective dates and a change history.
+- **Restocking:** handle restock orders → invoice → mark paid → dispatch → distributor confirms receipt.
+- **Network dashboard:** sales, bags, stock on hand, days of stock left, unconfirmed payments, delivery speed and complaints per distributor and in total.
+- **Alerts:** low stock (with suggested restock quantity), orders falling back to HQ, payments not confirmed in time, stock differences on delivery.
+- **Statements:** a monthly statement per distributor; mark as settled.
+- **HQ as a distributor:** HQ is also a distributor (the Abuja flagship), and is the fallback for every area.
 
 ---
 
-## 2. Order routing
+## 3. Order routing
 
 | Situation | What happens |
 |---|---|
-| Area covered by one distributor | Order goes to that distributor |
-| Area covered by more than one **[DECISION]** | Recommended: one distributor per area (exclusive territories). This is simplest and avoids disputes. If you allow overlap: send the order to the one with stock, then the one ranked first |
-| Distributor out of stock for the cart **[DECISION]** | Option A: show "not available in your area right now" with WhatsApp contact. Option B: fall back to HQ (or a neighbour) if they deliver there |
-| No distributor covers the area | "We don't deliver here yet". Capture the phone number to measure demand by area |
-| Distributor doesn't accept an order within N hours | Reminder to the distributor, then an alert to the producer, who can reassign it |
+| Area has a distributor with enough stock for the whole cart | Order goes to that distributor |
+| Area's distributor is short on any bag in the cart | Order goes to **HQ** (HQ's prices and delivery fee shown before ordering). HQ gets a "restock *Distributor*" alert |
+| Area has no distributor yet | HQ serves it if HQ delivers there; otherwise "not available here yet", and the customer's area and phone are captured as demand |
+| Distributor doesn't confirm payment or act within the time limit | Reminder to the distributor, then an alert to HQ. HQ can **reassign** the order to itself |
+| Distributor is suspended | Their areas fall back to HQ automatically |
 
-One order always belongs to **one distributor**. The area decides who, so a cart never mixes distributors.
-
----
-
-## 3. Payments (Paystack split payments; no wallet)
-
-Paystack lets one payment be split automatically at checkout:
-
-- Each distributor is created as a **Paystack subaccount** linked to their bank account. Their bank account is checked with Paystack's account-name lookup before saving.
-- When a customer pays, the transaction is created **for that distributor's subaccount**. Paystack pays the distributor directly, usually the next business day. The producer's share (if any) goes to the producer's main account at the same moment.
-- **The platform never holds anyone's money**, which keeps your earlier "no wallet" rule.
-- Delivery fees go **100% to the distributor**.
-- The producer's main Paystack account still receives every webhook, so order confirmation, tracking and reports work exactly as now.
-- Who pays Paystack's processing fee can be set: the distributor, the producer, or shared **[DECISION]**.
-
-> To confirm with Paystack before building: how refunds on split payments recover the subaccount's share, and the settlement schedule for new subaccounts. Exact API details will be checked against their current docs.
+One order = one distributor. The cart is priced by whoever will fulfil it, so the customer always sees the real price and delivery fee before paying.
 
 ---
 
-## 4. The business model behind the money **[DECISION: the most important one]**
+## 4. Payment by bank transfer (no Paystack)
 
-| | **A. Distributor owns the stock** (recommended to start) | **B. Producer consigns stock** |
-|---|---|---|
-| How stock gets there | Distributor buys bags from you at wholesale price, outside the website or via a payment link | You place stock with the distributor; you own it until it sells |
-| Customer payment | 100% to distributor (goods + delivery), optionally minus a small brand fee per bag | Split: producer gets the wholesale value of the bags sold, distributor gets the margin + delivery |
-| Your risk | Low: paid upfront for stock | Higher: stock at their site is yours until sold |
-| Stock tracking | For visibility and replenishment | Essential: it's your asset; regular stock counts |
-| Accounting | Simple | More complex: reconciliation per distributor |
-
-**Pricing [DECISION]:**
-1. One national price set by you.
-2. You set a price **range** (e.g. 50kg between ₦83,000 and ₦88,000) and each distributor picks within it. **Recommended:** it allows for transport costs in different cities while protecting the brand.
-3. Distributors price freely.
+- **Checkout:** the order is created as *Awaiting payment*, with stock held. The screen and SMS show:
+  - the distributor's bank name, account number and account name;
+  - the exact amount;
+  - the order number to use as narration.
+- **Confirmation:** the customer taps "I've paid" (optional: attach the receipt screenshot). The distributor confirms after seeing the money in their bank. **Only the distributor's confirmation marks an order paid**, never the customer's screenshot.
+- **Hold time [CONFIRM]:** recommended **3 hours** to pay. After that the order is cancelled and stock released, with a reminder SMS at 2 hours.
+- **Disputes:** "Customer says they paid, distributor says not received" goes to HQ with the receipt for review.
+- **Optional later:** automatic confirmation using a bank-transfer provider that gives each distributor a dedicated virtual account (confirmation by webhook, no manual step). This is not Paystack-dependent, and the design keeps the door open.
+- **[CONFIRM] HQ's own orders:** does HQ (the flagship) also take bank transfers instead of Paystack? Recommended: yes, the same flow for everyone. The existing Paystack code stays switched off rather than deleted.
 
 ---
 
-## 5. Existing features in a network **[DECISIONS]**
+## 5. Money between HQ and distributors
 
-| Feature | Recommended rule |
+| Item | How it's handled |
 |---|---|
-| **Promotions and coupons** | Producer-funded network-wide promotions come out of the producer's share (works in model B). In model A, discounts reduce the distributor's takings, so you either reimburse distributors monthly from a statement, or only distributors run their own promos. Distributors can also create **their own** promo codes for their area |
-| **Purchase points** | Stay network-wide and producer-funded (the customer can use points anywhere). Same funding question as above |
-| **Free 1kg samples** | Fulfilled by the local distributor; the customer pays that distributor's delivery fee. The bag comes from their stock: who bears the cost? Suggest the producer replaces it in the next stock delivery |
-| **Bag replacement** | The distributor handles collection and the new bag. The producer approves claims (keeps policy consistent) and replaces the damaged bag in the distributor's next stock delivery |
-| **Affiliates and referrals** | Stay producer-level; the order still goes to the local distributor |
-| **Wholesale sellers** | Small resellers buy from their local distributor at the wholesale band |
+| **Stock purchases** | Distributor places a restock order. HQ invoices at the wholesale price (on the platform) and the distributor pays HQ by transfer. HQ marks it paid and dispatches. **Stock is added when the distributor confirms receipt** |
+| **HQ per-bag fee** | Recorded on each online order at the rate in force that day, e.g. `₦X × bags`. Changes apply to new orders only |
+| **HQ-funded discounts** (network promotions, points coupons) | The customer paid the distributor less, so the discount is **credited to the distributor** on the statement |
+| **Replacement bags & free samples** | Given from the distributor's stock. HQ **replaces the bag in the next stock delivery** (no cash), shown on the statement |
+| **Statement (monthly [CONFIRM])** | Per distributor: fees owed − HQ-funded discount credits = **net owed to HQ** (or to the distributor). Settled by bank transfer outside the platform; HQ marks it settled |
+
+HQ never holds customer money, so there's still no wallet. Statements are reports, not balances customers can spend.
+
+**Fraud protection for bank details:** distributors can't change their own bank details. HQ updates them after verification, every change is logged, and the distributor gets an SMS alert. This stops someone who takes over a distributor login from redirecting customer payments.
 
 ---
 
-## 6. Inventory management
+## 6. Inventory and the Google stock depletion sheet
 
-- **Stock per distributor per bag size.**
-- Every change is a **stock movement**, an append-only history like the points ledger. Types: stock sent by producer → received by distributor, online sale, walk-in sale, replacement, damaged/write-off, count adjustment, transfer between distributors.
-- **In transit:** stock you dispatch shows as "in transit" until the distributor confirms receipt. Any difference is flagged.
-- **Days of cover** = stock ÷ average daily sales (last 14 days). Below a threshold (e.g. 7 days), the producer gets an alert and a suggested restock quantity.
-- **Stock counts:** distributors submit periodic counts. Differences become adjustments the producer approves.
-- Online orders hold the distributor's stock for 30 minutes during payment (as today), so two customers can't buy the last bag twice.
+- **Stock per distributor per bag size**: on hand, held for unpaid orders, in transit.
+- **Every change is a stock movement** (append-only history):
+
+  | Movement | Effect |
+  |---|---|
+  | Restock received | + bags (in transit → on hand) |
+  | Online sale | − bags when the distributor confirms payment |
+  | Shop (walk-in) sale | − bags |
+  | Replacement / free sample given | − bags (HQ replaces later) |
+  | Damaged / write-off | − bags (HQ approves) |
+  | Count adjustment | ± bags (HQ approves) |
+  | Reassigned to HQ | none at the distributor; HQ's stock moves instead |
+
+- **Google Sheet (stock depletion log):**
+  - Every stock movement is appended as a row within a minute. Columns: date/time, distributor, bag size, movement type, quantity, stock after, order/restock reference, recorded by.
+  - A second tab shows **current stock per distributor and size** and **days of stock left**, refreshed each time.
+  - The sheet is a **live copy for the team to view, filter and chart. The platform is the source of truth.** Edits typed into the sheet don't change stock. Stock corrections go through the portal so they're checked and logged.
+  - Needs: a Google account owned by the business, the sheet shared with a service account the platform uses. If Google is briefly unreachable, rows are queued and sent later, never lost.
+- **Days of stock left** = stock ÷ average daily sales over the last 14 days. Below 7 days: alert HQ with a suggested restock quantity.
 
 ---
 
-## 7. Storefronts
+## 7. Storefront
 
-**Recommended: one brand website, location-aware**, rather than a separate website per distributor:
-- Customers always see the same trusted brand, and Google ranks one strong site instead of many weak ones.
-- Each distributor still gets their **own page** (`/distributors/ibrahim-foods-kano`), their own **share link and QR code**, and "Delivered by …" on every product and order. Local SEO pages extend to each city and area they cover (e.g. "Rice delivery in Nassarawa, Kano").
-- Possible later: subdomains (`kano.naijasweetrice.ng`) if a distributor needs a separate address for marketing.
+- **One brand website**, location-aware (as recommended earlier). Each distributor also gets:
+  - their own page `/distributors/<name>` (areas, address, hours, phone);
+  - a share link and QR code that sets the customer's area to theirs.
+- Prices on product pages come from the area's distributor. With no area chosen, the page shows "from ₦X" (the lowest price in the range) and asks for the area.
+- The existing Abuja area pages show the local distributor's delivered prices.
 
 ---
 
-## 8. What changes in the system
+## 8. Existing features in the network
+
+| Feature | Network rule |
+|---|---|
+| Promotions & coupon codes | HQ promotions apply network-wide; HQ funds the discount (credited to the distributor). Distributor-only promo codes are a possible later addition |
+| Purchase points & coupons | Network-wide, HQ-funded (credited to the distributor when redeemed on their order) |
+| Free 1kg samples | Fulfilled by the area's distributor from their stock; customer pays the distributor's delivery fee by transfer (or pickup free); HQ replaces the bag |
+| Bag replacement claims | Customer submits as today; **HQ approves**; the distributor collects the damaged bag and delivers the new one from their stock; HQ replaces it in the next delivery |
+| Affiliates & referrals | Stay at HQ level; the order still goes to the area's distributor |
+| Wholesale sellers | Buy from their area's distributor at that distributor's wholesale price (within HQ's range) |
+| Reports | HQ sees everything; distributors see only their own |
+
+---
+
+## 9. What changes in the system
 
 **New data**
 
 ```
-Distributor        id, name, slug, status, phone, address, city, state, geo, hours,
-                   paystackSubaccountCode, bank (masked), producerShareRule, slaHours
+Distributor        id, name, slug, status, isHq, phone, address, hours, slaHours,
+                   bankName, accountNumber, accountName, bankVerifiedAt
 DistributorMember  distributorId, userId, role (OWNER | STAFF)
-Territory          distributorId, zoneId, priority          ← who covers which delivery area
+Territory          zoneId (unique) → distributorId          ← one distributor per area
 DistributorZoneFee distributorId, zoneId, baseFee, perKgFee, minOrderKg/Kobo, etaHours, terms
-DistributorPrice   distributorId, variantId, retailPrice, wholesalePrice   (within producer band)
-PriceBand          variantId, minRetail, maxRetail          (if pricing option 2)
-DistributorStock   distributorId, variantId, onHand, reserved, inTransit, reorderPoint
-StockMovement      id, distributorId, variantId, delta, type, orderId?, shipmentId?, actor, note, createdAt
-StockShipment      id, distributorId, lines, status (DISPATCHED | RECEIVED | DISPUTED), dispatchedAt, receivedAt
-WalkInSale         id, distributorId, lines, totalKobo, createdBy, createdAt
-Order              + distributorId, + distributorShareKobo, + producerShareKobo
-DemandSignal       phone?, zone/area text, createdAt        ← "we don't deliver here yet"
+PriceBand          variantId, minRetail, maxRetail, minWholesale, maxWholesale, effectiveFrom
+HqFeeRate          variantId, feeKobo, effectiveFrom, setBy            ← fixed per-bag fee, history kept
+DistributorPrice   distributorId, variantId, retailPrice, wholesalePrice (validated against band)
+DistributorStock   distributorId, variantId, onHand, held, inTransit, reorderPoint
+StockMovement      id, distributorId, variantId, delta, type, orderId?, restockId?, saleId?, actor,
+                   note, createdAt, sheetSyncedAt                      ← append-only; mirrored to Google Sheets
+RestockOrder       id, distributorId, lines, wholesaleTotal, status (REQUESTED → INVOICED → PAID →
+                   DISPATCHED → RECEIVED | DISPUTED), timestamps
+WalkInSale         id, distributorId, lines, totalKobo, paymentMethod, createdBy, createdAt
+Statement          id, distributorId, period, feesKobo, creditsKobo, netKobo, status (OPEN | SETTLED)
+Order              + distributorId, + routedToHq (bool), + hqFeeKobo, + hqFundedDiscountKobo,
+                   + paymentMethod (BANK_TRANSFER), + customerMarkedPaidAt, + paymentConfirmedBy/At,
+                   + receiptPhoto?
+DemandSignal       zone/area, phone?, createdAt
 ```
 
-Delivery zones grow beyond Abuja: **state → city → area**. They become shared reference data, and each distributor sets their own fee per area.
-
-**New screens**
-- Customer: area picker in the header; "Delivered by …"; distributor pages; "not available here yet".
-- `/partner`: orders, delivery fees, stock (receive, count, adjust), walk-in sales, sales and payouts, staff.
-- `/ops`: distributors (onboard, bank details, territories, status), stock shipments, network dashboard, approvals (stock adjustments, price changes), reassign orders.
-
 **Changes to what exists**
-- Checkout: price, fee and stock come from the area's distributor. The Paystack transaction is created with that distributor's subaccount and the producer's share.
-- `/ops/orders` gets a distributor filter. Distributors only ever see their own orders and customers.
-- Reports gain a "by distributor" view and a network map.
-- Privacy policy: customers' name, phone and address are shared with the distributor who delivers. Distributors sign a data-processing clause (NDPA 2023).
+- **Checkout:** route the order (§3), then price, fee and stock from that distributor; bank-transfer payment page instead of Paystack; hold time and auto-cancel.
+- **Cron:** cancel unpaid transfers after the hold time; send payment reminders; escalate unconfirmed payments; push queued rows to the Google Sheet; build monthly statements.
+- **Ops:** distributor management, price range and fee settings, restock orders, network dashboard, statements, disputes, reassignment.
+- **Privacy policy:** customers' details are shared with the distributor who delivers. Each distributor signs a data-processing agreement (NDPA 2023).
 
 ---
 
-## 9. Delivery phases (estimates for one developer)
+## 10. Delivery phases (estimates for one developer)
 
 | Phase | Weeks | Scope |
 |---|---|---|
-| **D1. Foundations** | 1.5 | Distributor, members, territories, per-distributor fees/prices/stock, stock movement ledger; current store migrated as "HQ" with no visible change |
-| **D2. Routing and split payments** | 1.5 | Area picker, routing rules, "Delivered by", Paystack subaccounts (onboarding + bank check), split checkout, unavailable-area capture |
-| **D3. Partner portal** | 1.5 | Orders and fulfilment, new-order alerts, delivery fees, stock receive/count/adjust, walk-in sales, staff |
-| **D4. Producer network console** | 1.5 | Onboarding, stock shipments, network dashboard, low-stock alerts and restock suggestions, SLA alerts and order reassignment |
-| **D5. Storefronts and SEO** | 1 | Distributor pages, share links/QR, city and area pages beyond Abuja |
-| **D6. Network rules** | 1 | Promotions/points funding, samples and replacements across distributors, distributor promo codes, refunds on split payments |
+| **D1. Foundations** | 1.5 | Distributors (HQ = first distributor, current store migrated with no visible change), members and roles, territories, price ranges, per-bag fee with history, per-distributor prices/fees/stock, stock movement ledger |
+| **D2. Routing & bank-transfer checkout** | 1.5 | Area picker, routing + HQ fallback, "Delivered by", bank-transfer payment page and SMS, "I've paid", distributor confirmation, hold time, auto-cancel, reminders, disputes |
+| **D3. Partner portal** | 1.5 | Orders & fulfilment, new-order alerts, price setting within range, delivery fees, stock view/counts, walk-in sales, staff, own reports |
+| **D4. HQ network console & restocking** | 1.5 | Onboarding & bank verification, restock orders (invoice → paid → dispatch → receive), network dashboard, low-stock and SLA alerts, reassignment |
+| **D5. Google Sheet & statements** | 1 | Stock depletion sheet sync (log + current stock tab, retry queue), monthly statements with fees and HQ credits |
+| **D6. Network rules & storefront** | 1 | HQ-funded promos/points credits, samples & replacements via distributors, distributor pages + share links/QR, updated area pages and privacy policy |
 
-**About 8 weeks.** D1 + D2 + D3 is the smallest useful version (~4.5 weeks): distributors can receive and fulfil paid orders, and you can see their sales. Testing throughout as before, including split-payment tests in Paystack test mode with test subaccounts.
+**About 8 weeks.** D1 + D2 + D3 (~4.5 weeks) is the first usable version: Abuja distributors receive orders, get paid by transfer, fulfil them, and HQ sees their sales.
 
 ---
 
-## 10. Decisions needed
+## 11. Still to confirm
 
-1. **Model:** do distributors buy stock from you (A), or do you place stock with them on consignment (B)?
-2. **Your share per online sale:** none, a fixed amount per bag/kg, or a percentage? And who pays Paystack's fee?
-3. **Pricing:** one national price, a price range distributors choose within, or free pricing?
-4. **Territories:** one distributor per area (exclusive), or overlapping?
-5. **Out of stock:** show unavailable, or fall back to HQ/another distributor?
-6. **Funding:** who pays for network-wide promotions, points coupons, free samples and replacement bags?
-7. **First locations:** which cities/states and roughly how many distributors at launch?
-8. **Walk-in sales:** should distributors record their in-shop sales on the platform? (Needed for accurate stock.)
-9. **Visibility:** should distributors see network-wide numbers (e.g. rankings), or only their own?
+1. **HQ's own orders:** bank transfer like everyone else (recommended), or keep Paystack for HQ only?
+2. **Per-bag fee:** one amount for every bag, or a different amount per size (e.g. 50kg vs 1kg)? Recommended: per size.
+3. **Payment hold time** for transfers: 3 hours recommended.
+4. **Statement period:** monthly (recommended) or weekly?
+5. **Google Sheet:** confirm it's a view-only mirror (recommended); which Google account should own it?
+6. **Abuja distributors:** how many at launch, and which areas does each cover? A simple list is enough to set them up.
