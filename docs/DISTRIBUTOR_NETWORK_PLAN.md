@@ -235,8 +235,11 @@ Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-ho
   2. Once the site is live, press "Connect bot to site".
   3. For email, set `RESEND_API_KEY`, `EMAIL_FROM` and `OPS_ALERT_EMAIL`.
 
+**Added later on 13 Nov 2026**
+- **Distributors' own promo codes:** created by distributor owners under Prices & delivery. They're funded by the distributor, only work on that distributor's orders, and aren't credited on statements. HQ can see them on the Promotions page.
+- **Individual HQ logins:** the shared `/ops` password is gone. HQ staff sign in with their own phone, as owner or staff; owners come from `HQ_OWNER_PHONES` and add others under **HQ team**. Only owners can change bank details or the team. The team page shows recent activity by person.
+
 **Not built yet**
-- Distributor-only promo codes.
 - An HQ map view of the network.
 
 ## 12. Still to confirm

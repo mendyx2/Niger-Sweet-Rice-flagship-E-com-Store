@@ -220,6 +220,7 @@ export async function addStaff(_prev: FormState, formData: FormData): Promise<Fo
   if (!phone) return { ok: false, message: "Enter a valid Nigerian mobile number." };
   const user = (await db.user.findUnique({ where: { phone }, include: { distributorMember: true } }))
     ?? (await db.user.create({ data: { phone, name, referralCode: makeReferralCode(name) }, include: { distributorMember: true } }));
+  if (user.roles.includes("OWNER") || user.roles.includes("STAFF")) return { ok: false, message: `${maskPhone(phone)} can't be added.` };
   if (user.distributorMember) {
     return { ok: false, message: user.distributorMember.distributorId === distributor.id ? "Already on your team." : `${maskPhone(phone)} already works with another distributor.` };
   }
@@ -311,4 +312,46 @@ export async function sendTestAlert(): Promise<FormState> {
   const { distributor } = await requirePartner();
   const sent = await notifyDistributor(distributor.id, "Test alert", "This is a test alert. If you can read this, alerts are working.");
   return sent ? { ok: true, message: `Test alert sent to ${sent} place${sent === 1 ? "" : "s"}.` } : { ok: false, message: "Nothing is connected yet: connect Telegram or add an email above." };
+}
+
+// ─── Distributor's own promo codes (owners) ─────────────────────────────────
+
+const codeInput = z.object({
+  code: z.string().trim().toUpperCase().min(4, "Codes need at least 4 characters.").max(20).regex(/^[A-Z0-9-]+$/, "Use letters, numbers and dashes only."),
+  type: z.enum(["PERCENT", "FIXED"]),
+  value: z.string(),
+  minOrder: z.string().optional(),
+  maxUses: z.string().optional(),
+  endsAt: z.string().optional(),
+});
+
+/** A code funded by the distributor itself; it only works on orders this distributor fulfils. */
+export async function createDistributorCode(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { distributor, actor } = await requirePartner({ ownerOnly: true });
+  const parsed = codeInput.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  const f = parsed.data;
+  const value = f.type === "PERCENT" ? Number(f.value) : nairaToKobo(f.value);
+  if (f.type === "PERCENT" && !(Number.isInteger(value) && value! >= 1 && value! <= 50)) return { ok: false, message: "Percent off must be a whole number from 1 to 50." };
+  if (f.type === "FIXED" && !(value && value > 0)) return { ok: false, message: "Enter the naira amount off." };
+  const minOrder = nairaToKobo(f.minOrder ?? "") ?? 0;
+  const maxUses = f.maxUses ? Number(f.maxUses) : 100_000;
+  if (Number.isNaN(minOrder) || !Number.isInteger(maxUses) || maxUses < 1) return { ok: false, message: "Please check the minimum order and number of uses." };
+  const endsAt = f.endsAt && /^\d{4}-\d{2}-\d{2}$/.test(f.endsAt) ? new Date(`${f.endsAt}T23:59:59+01:00`) : null;
+  if (endsAt && endsAt < new Date()) return { ok: false, message: "The end date is in the past." };
+  if (await db.coupon.findUnique({ where: { code: f.code } })) return { ok: false, message: "That code is already taken. Try another." };
+  await db.coupon.create({
+    data: { code: f.code, type: f.type, value: value!, minOrderKobo: minOrder, maxUses, source: "DISTRIBUTOR", distributorId: distributor.id, expiresAt: endsAt },
+  });
+  await db.auditLog.create({ data: { actor, action: "partner.coupon_create", entity: "Distributor", entityId: distributor.id, after: { code: f.code } } });
+  refresh();
+  return { ok: true, message: `Code ${f.code} is live for customers in your areas.` };
+}
+
+export async function stopDistributorCode(formData: FormData) {
+  const { distributor, actor } = await requirePartner({ ownerOnly: true });
+  const id = String(formData.get("id") ?? "");
+  const n = await db.coupon.updateMany({ where: { id, distributorId: distributor.id }, data: { expiresAt: new Date() } });
+  if (n.count) await db.auditLog.create({ data: { actor, action: "partner.coupon_stop", entity: "Coupon", entityId: id } });
+  refresh();
 }

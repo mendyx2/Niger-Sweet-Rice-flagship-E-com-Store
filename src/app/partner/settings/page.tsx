@@ -4,7 +4,7 @@ import { requirePartner } from "@/lib/partner-auth";
 import { formatNaira, koboToNairaInput } from "@/lib/money";
 import { ActionForm } from "@/components/action-form";
 import { PartnerNav } from "../partner-nav";
-import { saveFees, savePrices } from "../actions";
+import { createDistributorCode, saveFees, savePrices, stopDistributorCode } from "../actions";
 import { ShopLinkCard } from "@/components/shop-link-card";
 
 export default function SettingsPage() {
@@ -15,11 +15,13 @@ const input = "field mt-0 w-28 py-1.5";
 
 async function Settings() {
   const { distributor, member } = await requirePartner({ ownerOnly: true, next: "/partner/settings" });
-  const [variants, prices, zones] = await Promise.all([
+  const [variants, prices, zones, codes] = await Promise.all([
     db.variant.findMany({ orderBy: { sizeKg: "desc" } }),
     db.distributorPrice.findMany({ where: { distributorId: distributor.id } }),
     db.deliveryZone.findMany({ where: { distributorId: distributor.id }, orderBy: { sortOrder: "asc" }, include: { distributorFees: { where: { distributorId: distributor.id } } } }),
+    db.coupon.findMany({ where: { distributorId: distributor.id }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
+  const now = new Date();
   const p = new Map(prices.map((x) => [x.variantId, x]));
   const range = (min: number | null, max: number | null) =>
     min == null && max == null ? "No range set" : `${min != null ? formatNaira(min) : "any"} – ${max != null ? formatNaira(max) : "any"}`;
@@ -78,6 +80,37 @@ async function Settings() {
             </div>
           </ActionForm>
         )}
+      </section>
+
+      <section className="mt-6 card p-5">
+        <h2 className="font-semibold text-lg">Your promo codes</h2>
+        <p className="mt-1 text-sm text-muted">Discounts you fund yourself, for your customers (e.g. on flyers or WhatsApp). They only work on orders you deliver and aren&apos;t credited back by HQ.</p>
+        {codes.length > 0 && (
+          <ul className="mt-3 divide-y divide-border text-sm">
+            {codes.map((c) => {
+              const live = (!c.expiresAt || c.expiresAt > now) && c.usedCount < c.maxUses;
+              return (
+                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>
+                    <strong className="font-mono">{c.code}</strong> · {c.type === "PERCENT" ? `${c.value}% off` : `${formatNaira(c.value)} off`}
+                    {c.minOrderKobo ? ` over ${formatNaira(c.minOrderKobo)}` : ""} · used {c.usedCount}{c.maxUses < 100_000 ? `/${c.maxUses}` : ""}
+                    <span className={`ml-2 text-xs ${live ? "text-success" : "text-muted"}`}>{live ? "Live" : "Ended"}</span>
+                  </span>
+                  {live && <form action={stopDistributorCode}><input type="hidden" name="id" value={c.id} /><button className="text-xs underline">Stop</button></form>}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <ActionForm action={createDistributorCode} submit="Create code" className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+          <label className="block"><span className="font-semibold">Code</span><input name="code" required maxLength={20} placeholder="GOVA10" className="field uppercase" /></label>
+          <label className="block"><span className="font-semibold">Type</span>
+            <select name="type" className="field"><option value="PERCENT">% off</option><option value="FIXED">₦ off</option></select></label>
+          <label className="block"><span className="font-semibold">Amount</span><input name="value" required inputMode="decimal" placeholder="10" className="field" /></label>
+          <label className="block"><span className="font-semibold">Min order ₦</span><input name="minOrder" inputMode="decimal" className="field" /></label>
+          <label className="block"><span className="font-semibold">Max uses</span><input name="maxUses" inputMode="numeric" placeholder="Unlimited" className="field" /></label>
+          <label className="block"><span className="font-semibold">Ends</span><input name="endsAt" type="date" className="field" /></label>
+        </ActionForm>
       </section>
 
       <div className="mt-6"><ShopLinkCard slug={distributor.slug} live={zones.length > 0} /></div>

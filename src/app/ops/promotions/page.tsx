@@ -14,9 +14,10 @@ const d = (x: Date | null) => (x ? x.toLocaleDateString("en-NG", { day: "numeric
 
 async function Promotions() {
   await requireOps();
-  const [promos, coupons] = await Promise.all([
+  const [promos, coupons, distCodes] = await Promise.all([
     db.promotion.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
     db.coupon.findMany({ where: { source: "PROMO" }, orderBy: { createdAt: "desc" }, take: 100 }),
+    db.coupon.findMany({ where: { source: "DISTRIBUTOR" }, orderBy: { createdAt: "desc" }, take: 50, include: { distributor: { select: { name: true } } } }),
   ]);
   const byCode = new Map(coupons.map((c) => [c.code, c]));
   return (
@@ -59,10 +60,26 @@ async function Promotions() {
             );
           })}
         </ul>
+        <div className="space-y-6">
         <section className="card p-5">
           <h2 className="font-semibold text-lg">New promotion</h2>
           <PromotionForm />
         </section>
+        <section className="card p-5">
+          <h2 className="font-semibold text-lg">Distributors&apos; own codes</h2>
+          <p className="mt-1 text-xs text-muted">Funded by the distributor, valid only on their orders, not credited on statements.</p>
+          {distCodes.length === 0 ? <p className="mt-2 text-sm text-muted">None yet.</p> : (
+            <ul className="mt-2 divide-y divide-border text-sm">
+              {distCodes.map((c) => (
+                <li key={c.id} className="py-2">
+                  <strong className="font-mono">{c.code}</strong> · {c.distributor?.name} · {c.type === "PERCENT" ? `${c.value}%` : formatNaira(c.value)} off · used {c.usedCount}
+                  {c.expiresAt && c.expiresAt < new Date() ? <span className="ml-1 text-xs text-muted">(ended)</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        </div>
       </div>
     </>
   );

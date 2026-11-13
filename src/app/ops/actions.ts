@@ -1,41 +1,20 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { TAGS } from "@/lib/catalogue";
 import { nairaToKobo } from "@/lib/money";
-import { checkOpsPassword, endOpsSession, requireOps, startOpsSession } from "@/lib/ops-auth";
+import { requireOps } from "@/lib/ops-auth";
 import { CheckoutError, createPendingOrder, markOrderPaid } from "@/lib/orders";
 import { sendSms } from "@/lib/sms";
 import { site } from "@/lib/site";
 import { HQ_ID, currentHqFees } from "@/lib/network";
 import { moveStock } from "@/lib/stock";
 import { changeOrderStatus, confirmTransferReceived, reportTransferNotReceived } from "@/lib/order-actions";
-import { rateLimit } from "@/lib/rate-limit";
-import { clientIp } from "@/lib/request";
 
 export type FormState = { ok: boolean; message: string } | null;
-
-// ─── Login ──────────────────────────────────────────────────────────────────
-
-export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
-  const ip = await clientIp();
-  if (!(await rateLimit(`ops-login:${ip}`, 5, 15 * 60_000)).ok) {
-    return { ok: false, message: "Too many attempts. Try again in 15 minutes." };
-  }
-  const password = String(formData.get("password") ?? "");
-  if (!checkOpsPassword(password)) return { ok: false, message: "Incorrect password." };
-  await startOpsSession();
-  redirect("/ops/orders");
-}
-
-export async function logout() {
-  await endOpsSession();
-  redirect("/ops/login");
-}
 
 // ─── Prices & stock ─────────────────────────────────────────────────────────
 

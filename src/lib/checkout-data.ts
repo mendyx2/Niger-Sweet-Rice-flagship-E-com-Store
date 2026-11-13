@@ -24,7 +24,7 @@ export type CartQuote = {
   zone: (Pick<QuoteZone, "id" | "name" | "kind"> & { terms: string | null }) | null;
   fulfiller: Fulfiller | null;
   couponCode: string | null;
-  couponIssue: CouponIssue | "COUPON_NOT_FOUND" | null;
+  couponIssue: CouponIssue | "COUPON_NOT_FOUND" | "COUPON_WRONG_SELLER" | null;
 };
 
 const MAX_LINES = 20;
@@ -75,7 +75,10 @@ export async function priceCart(opts: {
 
   const zone = offers.zone;
   const code = opts.couponCode?.trim().toUpperCase() || null;
-  const coupon = code ? await db.coupon.findUnique({ where: { code } }) : null;
+  const found = code ? await db.coupon.findUnique({ where: { code } }) : null;
+  // A distributor's own code only works on orders that distributor fulfils.
+  const wrongSeller = !!found?.distributorId && found.distributorId !== routing.offer?.distributorId;
+  const coupon = wrongSeller ? null : found;
 
   // Before an area is chosen, price the goods and discount only (no delivery fee or minimum order yet).
   const fee = zone ? offer.fee : NO_ZONE_FEE;
@@ -105,7 +108,7 @@ export async function priceCart(opts: {
       ? { distributorId: routing.offer.distributorId, name: routing.offer.name, isHq: routing.offer.isHq, routedToHq: routing.routedToHq }
       : null,
     couponCode: code,
-    couponIssue: code && !coupon ? "COUPON_NOT_FOUND" : q.couponIssue,
+    couponIssue: wrongSeller ? "COUPON_WRONG_SELLER" : code && !found ? "COUPON_NOT_FOUND" : q.couponIssue,
   };
 }
 
@@ -113,6 +116,7 @@ export function couponMessage(issue: CartQuote["couponIssue"]): string | null {
   switch (issue) {
     case null: return null;
     case "COUPON_NOT_FOUND": return "We couldn't find that coupon code.";
+    case "COUPON_WRONG_SELLER": return "This code is from a different seller and can't be used for your delivery area.";
     case "COUPON_NOT_STARTED": return "This coupon isn't active yet.";
     case "COUPON_EXPIRED": return "This coupon has expired.";
     case "COUPON_USED_UP": return "This coupon has already been used.";

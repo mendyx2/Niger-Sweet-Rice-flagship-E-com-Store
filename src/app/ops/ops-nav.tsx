@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { logout } from "./actions";
+import { signOut } from "../login/actions";
+import { getHqStaff } from "@/lib/ops-auth";
 
-export function OpsNav({ current }: { current: "orders" | "distributors" | "restocks" | "statements" | "returns" | "reports" | "prices" | "zones" | "partners" | "promotions" }) {
+export async function OpsNav({ current }: { current: "orders" | "distributors" | "restocks" | "statements" | "returns" | "reports" | "prices" | "zones" | "partners" | "promotions" | "team" }) {
+  const staff = await getHqStaff();
   const tab = (href: string, label: string, key: string) => (
     <Link
       href={href}
@@ -12,8 +14,12 @@ export function OpsNav({ current }: { current: "orders" | "distributors" | "rest
     </Link>
   );
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-      <nav className="flex flex-wrap gap-2 text-sm" aria-label="Staff">
+    <div className="mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p className="text-muted">HQ · <strong className="text-foreground">{staff?.user.name ?? "Staff"}</strong> <span className="text-xs">({staff?.role === "OWNER" ? "owner" : "staff"})</span></p>
+        <form action={signOut}><button className="underline text-muted">Sign out</button></form>
+      </div>
+      <nav className="mt-3 flex flex-wrap gap-2 text-sm" aria-label="Staff">
         {tab("/ops/orders", "Orders", "orders")}
         {tab("/ops/distributors", "Distributors", "distributors")}
         {tab("/ops/restocks", "Restocks", "restocks")}
@@ -24,10 +30,8 @@ export function OpsNav({ current }: { current: "orders" | "distributors" | "rest
         {tab("/ops/zones", "HQ delivery fees", "zones")}
         {tab("/ops/partners", "Sellers & affiliates", "partners")}
         {tab("/ops/promotions", "Promotions", "promotions")}
+        {staff?.role === "OWNER" && tab("/ops/team", "HQ team", "team")}
       </nav>
-      <form action={logout}>
-        <button className="text-sm underline text-muted">Sign out</button>
-      </form>
     </div>
   );
 }

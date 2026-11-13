@@ -12,7 +12,11 @@ const LABEL: Record<string, string> = {
 const lagos = (d: Date) => new Date(d.getTime() + 3600_000).toISOString().replace("T", " ").slice(0, 16);
 
 /** Who did it, without exposing internal ids: "partner:gova-max-ltd:<user>" → "gova-max-ltd". */
-const who = (actor: string) => (actor.startsWith("partner:") ? actor.split(":")[1] : actor.startsWith("ops") || actor === "staff" ? "HQ staff" : actor.startsWith("c") && actor.length > 20 ? "customer" : actor);
+const who = (actor: string) =>
+  actor.startsWith("partner:") ? actor.split(":")[1]
+  : actor.startsWith("hq:") || actor === "staff" ? "HQ staff"
+  : actor.startsWith("c") && actor.length > 20 ? "customer"
+  : actor;
 
 export function movementRow(m: {
   createdAt: Date; distributor: { name: string }; variant: { sizeKg: number }; type: string; delta: number; transitDelta: number;

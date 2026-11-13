@@ -77,7 +77,7 @@ const bank = z.object({
  * distributor is alerted by SMS, so a hijacked login can't redirect payments.
  */
 export async function updateBankDetails(_prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireOps();
+  const actor = await requireOps({ ownerOnly: true });
   const id = String(formData.get("id") ?? "");
   const parsed = bank.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
@@ -143,6 +143,9 @@ export async function addMember(_prev: FormState, formData: FormData): Promise<F
   if (!d) return { ok: false, message: "Distributor not found." };
   const user = (await db.user.findUnique({ where: { phone }, include: { distributorMember: true } }))
     ?? (await db.user.create({ data: { phone, name, referralCode: makeReferralCode(name) }, include: { distributorMember: true } }));
+  if (user.roles.includes("OWNER") || user.roles.includes("STAFF")) {
+    return { ok: false, message: `${maskPhone(phone)} is HQ staff and can't also join a distributor team.` };
+  }
   if (user.distributorMember && user.distributorMember.distributorId !== id) {
     return { ok: false, message: `${maskPhone(phone)} already belongs to another distributor.` };
   }

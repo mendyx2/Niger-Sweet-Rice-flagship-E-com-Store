@@ -82,7 +82,8 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
       routedToHq: priced.fulfiller.routedToHq,
       // HQ's fixed per-bag fee and HQ-funded discounts are recorded on distributor orders for the monthly statement.
       hqFeeKobo: hqFeeFor(q.lines, fees, distributor.isHq),
-      hqFundedDiscountKobo: distributor.isHq ? 0 : q.discountKobo,
+      // HQ promotions and points coupons are credited back to the distributor; a distributor's own codes are not.
+      hqFundedDiscountKobo: distributor.isHq || coupon?.distributorId ? 0 : q.discountKobo,
       paymentMethod: "BANK_TRANSFER",
       payTo,
       userId: user.id,

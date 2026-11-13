@@ -5,6 +5,7 @@ nearby towns, purchase points → discount coupons, bag-replacement returns.
 
 - **Plan & roadmap:** [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)
 - **Distributor network:** [docs/DISTRIBUTOR_NETWORK_PLAN.md](docs/DISTRIBUTOR_NETWORK_PLAN.md)
+- **Going live (step by step):** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - **Stack:** Next.js 16 (React 19, App Router, Cache Components) · TypeScript · Tailwind CSS 4 · PostgreSQL + Prisma · Vitest
 
 ## Run it locally
@@ -12,7 +13,7 @@ nearby towns, purchase points → discount coupons, bag-replacement returns.
 Requirements: Node 22+, PostgreSQL 16.
 
 ```bash
-cp .env.example .env      # then fill in DATABASE_URL, OPS_PASSWORD, SESSION_SECRET
+cp .env.example .env      # then fill in DATABASE_URL, SESSION_SECRET, HQ_OWNER_PHONES
 npm install
 npm run db:migrate        # create tables
 npm run db:seed           # bag sizes + delivery zones (prices start empty)
@@ -23,7 +24,7 @@ Customers pay by **bank transfer** to the seller for their area (a distributor, 
 codes, customer messages and the bank-change security alert; staff alerts go to Telegram and/or email (free). Without
 the provider keys, local development shows the login code on screen and prints messages to the server log.
 
-Staff screens live at **/ops** (sign in with `OPS_PASSWORD`). Distributors use **/partner** (phone sign-in; HQ adds their number in `/ops/distributors`).
+Staff screens live at **/ops**: HQ staff sign in with their own phone number (owners come from `HQ_OWNER_PHONES`; owners add the rest under **HQ team**). Distributors use **/partner** (phone sign-in; HQ adds their number in `/ops/distributors`).
 
 - **/ops/distributors**: add distributors, set their bank account (HQ only), areas, logins, send stock, approve stock adjustments, see their month.
 - **/ops/restocks**: distributor stock requests: invoice, confirm payment, dispatch.

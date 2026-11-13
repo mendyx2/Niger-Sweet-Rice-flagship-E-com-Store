@@ -55,6 +55,7 @@ async function Orders({ searchParams }: Pick<PageProps<"/ops/orders">, "searchPa
   return (
     <>
       <OpsNav current="orders" />
+      {sp.owner === "1" && <p role="status" className="mb-4 rounded-xl bg-cta/25 p-3 text-sm">That page is for HQ owners only.</p>}
       <h1 className="font-display text-2xl font-bold">Orders</h1>
       <nav className="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Filter orders">
         {FILTERS.map((f) => (

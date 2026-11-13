@@ -352,9 +352,13 @@ enum CouponSource {
   AFFILIATE_REWARD
   POINTS_REDEMPTION
   WINBACK
+  DISTRIBUTOR // a distributor's own code, funded by the distributor
 }
 
 model Coupon {
+  /// Set for a distributor's own code: only valid on that distributor's orders, funded by them.
+  distributorId   String?
+  distributor     Distributor? @relation(fields: [distributorId], references: [id])
   id              String       @id @default(cuid())
   code            String       @unique
   type            CouponType
@@ -549,6 +553,7 @@ model Distributor {
   orders      Order[]
   walkInSales WalkInSale[]
   restocks    RestockOrder[]
+  coupons     Coupon[]
   statements  Statement[]
 }
 

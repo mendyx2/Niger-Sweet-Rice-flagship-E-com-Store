@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireOps } from "@/lib/ops-auth";
+import { getHqStaff, requireOps } from "@/lib/ops-auth";
 import { formatNgPhone } from "@/lib/phone";
 import { ActionForm } from "@/components/action-form";
 import { OpsNav } from "../../ops-nav";
@@ -24,6 +24,7 @@ const when = (d: Date) => d.toLocaleString("en-NG", { dateStyle: "medium", timeS
 
 async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">, "params">) {
   await requireOps();
+  const isOwner = (await getHqStaff())?.role === "OWNER";
   const { id } = await params;
   const d = await db.distributor.findUnique({
     where: { id },
@@ -82,6 +83,12 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
           <h2 className="font-semibold text-lg">Bank account customers pay into</h2>
           <p className="mt-1 text-sm text-muted">Only HQ can change this. Every change is logged and {d.isHq ? "HQ" : "the distributor"} is alerted by SMS.</p>
           {d.bankUpdatedAt && <p className="mt-1 text-xs text-muted">Last changed {when(d.bankUpdatedAt)}</p>}
+          {!isOwner ? (
+            <p className="mt-3 text-sm">
+              {d.accountNumber ? <>{d.bankName} · <strong className="tracking-wider">{d.accountNumber}</strong> · {d.accountName}</> : <span className="text-danger">Not set yet.</span>}
+              <span className="block mt-1 text-xs text-muted">Only HQ owners can change bank details.</span>
+            </p>
+          ) : (
           <ActionForm action={updateBankDetails} submit="Save bank details" className="mt-3 space-y-3 text-sm"
             confirm="Customers will be told to pay into this account. Have you verified it with the account holder?">
             <input type="hidden" name="id" value={d.id} />
@@ -89,6 +96,7 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
             <label className="block"><span className="font-semibold">Account number (10 digits)</span><input name="accountNumber" inputMode="numeric" maxLength={10} defaultValue={d.accountNumber ?? ""} required className="field tracking-wider" /></label>
             <label className="block"><span className="font-semibold">Account name</span><input name="accountName" defaultValue={d.accountName ?? ""} required className="field" /></label>
           </ActionForm>
+          )}
         </section>
 
         {!d.isHq && (
