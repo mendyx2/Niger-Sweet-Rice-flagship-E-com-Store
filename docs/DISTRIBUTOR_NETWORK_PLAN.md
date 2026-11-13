@@ -215,13 +215,22 @@ Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-ho
   The HQ orders screen gained a seller filter and transfer confirmation, and reports gained "By seller".
 - **D5 (part):** the monthly statement per distributor: HQ fee on bags sold online − HQ-funded discounts = net owed, plus bags HQ must replace (samples and replacements given from the distributor's stock).
 
+**Added on 13 Nov 2026 (second round)**
+- **Restocks (`/ops/restocks`, partner Stock page):**
+  1. The distributor requests bags.
+  2. HQ confirms quantities, adds free bags to replace samples and replacements the distributor gave (pre-filled), and invoices at the **distributor price** (set per size on the Prices page).
+  3. The distributor pays HQ by transfer using the RS number and taps "I've paid HQ".
+  4. HQ confirms and dispatches; the bags show "in transit".
+  5. The distributor confirms receipt.
+- **Statements (`/ops/statements`):** live figures during the month. HQ closes a finished month, which freezes the figures and texts each distributor, then marks each statement settled with a transfer reference. Distributors see the frozen statement and its status in "My numbers".
+- **Google stock depletion sheet:** every finished stock movement is appended to a "Stock movements" tab, and a "Current stock" tab shows on hand, held, in transit, usage over the last 14 days and days of stock left per distributor. It runs with the housekeeping job, retries anything not yet sent, and stays switched off until `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_SERVICE_ACCOUNT_KEY` are set. Tested against a simulated Google API; needs one real run once the account exists.
+- **Public distributor pages** (`/distributors/<name>`): areas, address, hours and phone, plus "Shop in <area>" buttons that set the customer's area. Each distributor gets a share link and a printable QR code (partner Prices & delivery page and HQ's distributor page). Area pages name the local distributor, and the sitemap includes distributor pages.
+
 **Not built yet**
-- **Google stock depletion sheet:** waiting for the business Google account. Stock movements already record a "synced" marker, ready for this.
-- **Distributor-initiated restock requests** (request → HQ invoice → paid → dispatch). Today HQ dispatches directly from `/ops`.
-- HQ marking monthly statements as settled, and a statement history.
-- **D6:** public distributor pages with share links and QR codes; distributor-only promo codes.
+- Distributor-only promo codes.
+- An HQ map view of the network.
 
 ## 12. Still to confirm
 
-1. The Google account that will own the stock depletion sheet.
+1. The Google account that will own the stock depletion sheet: create a service account, share the sheet with it, and set the three `GOOGLE_*` settings.
 2. Gova Max Ltd's areas, bank account and owner phone number (HQ can enter them in `/ops/distributors`).

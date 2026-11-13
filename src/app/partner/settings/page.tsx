@@ -5,6 +5,7 @@ import { formatNaira, koboToNairaInput } from "@/lib/money";
 import { ActionForm } from "@/components/action-form";
 import { PartnerNav } from "../partner-nav";
 import { saveFees, savePrices } from "../actions";
+import { ShopLinkCard } from "@/components/shop-link-card";
 
 export default function SettingsPage() {
   return <Suspense fallback={<p className="text-muted">Loading…</p>}><Settings /></Suspense>;
@@ -78,6 +79,8 @@ async function Settings() {
           </ActionForm>
         )}
       </section>
+
+      <div className="mt-6"><ShopLinkCard slug={distributor.slug} live={zones.length > 0} /></div>
 
       <section className="mt-6 card p-5 text-sm">
         <h2 className="font-semibold text-lg">Bank account customers pay into</h2>

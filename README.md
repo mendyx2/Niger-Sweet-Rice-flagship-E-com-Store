@@ -25,6 +25,8 @@ local development shows the SMS login code on screen (never in production).
 Staff screens live at **/ops** (sign in with `OPS_PASSWORD`). Distributors use **/partner** (phone sign-in; HQ adds their number in `/ops/distributors`).
 
 - **/ops/distributors**: add distributors, set their bank account (HQ only), areas, logins, send stock, approve stock adjustments, see their month.
+- **/ops/restocks**: distributor stock requests: invoice, confirm payment, dispatch.
+- **/ops/statements**: close a month per distributor and mark statements settled.
 
 - **/ops/orders**: move paid orders to preparing → out for delivery (with rider) → delivered. Each change texts the customer.
 - **/ops/returns**: review bag-replacement requests with photos; approving creates a free replacement order.
@@ -34,7 +36,8 @@ Staff screens live at **/ops** (sign in with `OPS_PASSWORD`). Distributors use *
 
 Housekeeping runs from `/api/cron/release-reservations` (call every ~10 minutes with
 `Authorization: Bearer $CRON_SECRET`): frees stock from unpaid orders, confirms points after the
-return window, expires year-old points and sends sample follow-up coupons.
+return window, expires year-old points, sends sample follow-up coupons and payment reminders, and syncs the
+Google stock depletion sheet (when configured).
 - **/ops/prices**: set retail, wholesale and "was" (promo) prices, plus stock, per bag size. Every change is logged.
 - **/ops/zones**: delivery fees per area, and minimum orders (MOQ) for nearby towns.
 

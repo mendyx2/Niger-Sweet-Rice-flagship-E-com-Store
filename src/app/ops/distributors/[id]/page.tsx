@@ -6,6 +6,7 @@ import { requireOps } from "@/lib/ops-auth";
 import { formatNgPhone } from "@/lib/phone";
 import { ActionForm } from "@/components/action-form";
 import { OpsNav } from "../../ops-nav";
+import { ShopLinkCard } from "@/components/shop-link-card";
 import { formatNaira } from "@/lib/money";
 import { currentMonth, distributorMonth } from "@/lib/statement";
 import { addMember, removeMember, reviewAdjustment, sendStock, updateAreas, updateBankDetails, updateDistributor } from "../actions";
@@ -166,6 +167,8 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
             )}
           </section>
         )}
+
+        {!d.isHq && <ShopLinkCard slug={d.slug} live={d.status === "ACTIVE" && d.zones.length > 0} />}
 
         {pending.length > 0 && (
           <section className="card p-5 border-cta">

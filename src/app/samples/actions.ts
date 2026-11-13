@@ -103,3 +103,16 @@ export async function requestSample(_prev: SampleState, formData: FormData): Pro
   }
   return { ok: true, url: `/orders/${order.number}` };
 }
+
+/** What the sample will cost to deliver to this area, and who sends it (the area's distributor or HQ). */
+export async function getSampleQuote(zoneId: string): Promise<{ feeKobo: number; seller: string } | null> {
+  if (!z.string().min(1).max(40).safeParse(zoneId).success) return null;
+  const zone = await db.deliveryZone.findUnique({ where: { id: zoneId } });
+  const variant = await db.variant.findFirst({ where: { isSampleSize: true, active: true } });
+  if (!zone || !variant || zone.kind === "NEARBY_TOWN") return null;
+  const { owner, hq } = await offersForZone(zone.id);
+  const hasSample = (o: typeof hq | null) => !!o?.ready && !!o.fee && (o.variants.find((v) => v.variantId === variant.id)?.available ?? 0) >= 1;
+  const from = owner && !owner.isHq && hasSample(owner) ? owner : hasSample(hq) ? hq : null;
+  if (!from) return null;
+  return { feeKobo: deliveryFeeKobo({ ...zone, ...from.fee!, active: true }, variant.sizeKg), seller: from.name };
+}

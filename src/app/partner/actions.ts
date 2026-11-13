@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requirePartner } from "@/lib/partner-auth";
 import { changeOrderStatus, confirmTransferReceived, reportTransferNotReceived } from "@/lib/order-actions";
 import { moveStock } from "@/lib/stock";
+import { cancelRestock, distributorMarksRestockPaid, markRestocksReceived, requestRestock, RestockError } from "@/lib/restock";
 import { nairaToKobo, formatNaira } from "@/lib/money";
 import { withinBand } from "@/lib/network-rules";
 import { alertHq } from "@/lib/notify";
@@ -67,6 +68,7 @@ export async function receiveStock(_prev: FormState, formData: FormData): Promis
     if (!Number.isInteger(n) || n < 0 || n > s.inTransit) return { ok: false, message: `${s.variant.sizeKg}kg: enter a number from 0 to ${s.inTransit}.` };
   }
   await db.$transaction(async (tx) => {
+    await markRestocksReceived(tx, distributor.id);
     for (const s of stock) {
       const got = Number(formData.get(`received:${s.variantId}`));
       if (got > 0) {
@@ -238,4 +240,50 @@ export async function removeStaff(formData: FormData) {
     db.auditLog.create({ data: { actor, action: "partner.staff_remove", entity: "Distributor", entityId: distributor.id, after: { userId } } }),
   ]);
   refresh();
+}
+
+// ─── Buying stock from HQ ───────────────────────────────────────────────────
+
+export async function partnerRequestRestock(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { distributor, actor } = await requirePartner();
+  const variants = await db.variant.findMany();
+  const lines = [];
+  for (const v of variants) {
+    const qty = Number(formData.get(`want:${v.id}`) || 0);
+    if (!Number.isInteger(qty) || qty < 0 || qty > 100_000) return { ok: false, message: `${v.sizeKg}kg: enter a whole number of bags.` };
+    if (qty) lines.push({ variantId: v.id, sizeKg: v.sizeKg, qty });
+  }
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
+  try {
+    const r = await requestRestock(distributor.id, lines, note, actor);
+    refresh();
+    return { ok: true, message: `Request ${r.number} sent. HQ will confirm the quantities and send an invoice.` };
+  } catch (e) {
+    if (e instanceof RestockError) return { ok: false, message: e.message };
+    throw e;
+  }
+}
+
+export async function partnerRestockPaid(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { distributor } = await requirePartner();
+  try {
+    await distributorMarksRestockPaid(String(formData.get("id") ?? ""), distributor.id);
+    refresh();
+    return { ok: true, message: "Thanks. HQ will confirm once the money arrives and then dispatch." };
+  } catch (e) {
+    if (e instanceof RestockError) return { ok: false, message: e.message };
+    throw e;
+  }
+}
+
+export async function partnerCancelRestock(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { distributor, actor } = await requirePartner();
+  try {
+    await cancelRestock(String(formData.get("id") ?? ""), actor, distributor.id);
+    refresh();
+    return { ok: true, message: "Request cancelled." };
+  } catch (e) {
+    if (e instanceof RestockError) return { ok: false, message: e.message };
+    throw e;
+  }
 }

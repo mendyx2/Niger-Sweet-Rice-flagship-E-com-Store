@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requirePartner } from "@/lib/partner-auth";
+import { db } from "@/lib/db";
 import { formatNaira } from "@/lib/money";
 import { currentMonth, distributorMonth, isMonth } from "@/lib/statement";
 import { PartnerNav } from "../partner-nav";
@@ -19,8 +20,14 @@ async function Reports({ searchParams }: Pick<PageProps<"/partner/reports">, "se
   const { distributor, member } = await requirePartner({ next: "/partner/reports" });
   const sp = await searchParams;
   const month = isMonth(sp.m) ? sp.m : currentMonth();
-  const r = await distributorMonth(distributor.id, month);
-  const s = r.statement;
+  const [r, closed] = await Promise.all([
+    distributorMonth(distributor.id, month),
+    db.statement.findUnique({ where: { distributorId_month: { distributorId: distributor.id, month } } }),
+  ]);
+  // A closed month shows HQ's frozen statement; an open month shows live figures.
+  const s = closed
+    ? { hqFees: closed.feesKobo, hqCredits: closed.creditsKobo, net: closed.netKobo, bagsToReplace: closed.bagsToReplace as { sizeKg: number; qty: number; type: string }[] }
+    : r.statement;
   const tiles = [
     { label: "Online sales", value: formatNaira(r.goodsOnline), sub: `${r.onlineOrders} orders + ${formatNaira(r.deliveryFees)} delivery fees` },
     { label: "Shop sales", value: formatNaira(r.shopTotal), sub: `${r.shopSales} sales` },
@@ -76,7 +83,11 @@ async function Reports({ searchParams }: Pick<PageProps<"/partner/reports">, "se
               {s.bagsToReplace.map((b) => `${b.qty}×${b.sizeKg}kg (${b.type === "SAMPLE" ? "free sample" : "replacement"})`).join(", ")}
             </p>
           )}
-          <p className="mt-3 text-xs text-muted">Settled with HQ by bank transfer at the end of the month.</p>
+          <p className="mt-3 text-xs text-muted">
+            {!closed ? "Month still open: figures update as orders come in. Settled with HQ by bank transfer after HQ closes the month."
+              : closed.status === "SETTLED" ? `Settled on ${closed.settledAt?.toLocaleDateString("en-NG", { day: "numeric", month: "long", timeZone: "Africa/Lagos" })}.`
+              : "Closed by HQ. Waiting for settlement by bank transfer."}
+          </p>
         </section>
       </div>
     </>

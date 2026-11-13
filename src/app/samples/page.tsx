@@ -71,7 +71,7 @@ async function SampleContent() {
     <>
       <h2 className="font-display text-2xl font-bold">Where should we send it?</h2>
       <SampleForm
-        zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind, fee: z.kind === "PICKUP" ? 0 : z.baseFeeKobo + z.perKgFeeKobo }))}
+        zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
         defaults={{ name: user.name ?? "", phone: formatNgPhone(user.phone) }}
       />
     </>

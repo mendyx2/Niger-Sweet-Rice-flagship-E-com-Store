@@ -55,3 +55,22 @@ export async function distributorMonth(distributorId: string, month: string) {
     },
   };
 }
+
+/** Freezes a finished month into a Statement (idempotent: an existing statement is left as it is). */
+export async function closeStatement(distributorId: string, month: string, actor: string) {
+  const existing = await db.statement.findUnique({ where: { distributorId_month: { distributorId, month } } });
+  if (existing) return existing;
+  const m = await distributorMonth(distributorId, month);
+  return db.statement.create({
+    data: {
+      distributorId, month, closedBy: actor,
+      feesKobo: m.statement.hqFees, creditsKobo: m.statement.hqCredits, netKobo: m.statement.net,
+      bagsToReplace: m.statement.bagsToReplace, onlineOrders: m.onlineOrders, goodsOnlineKobo: m.goodsOnline, shopTotalKobo: m.shopTotal,
+    },
+  });
+}
+
+export async function settleStatement(id: string, actor: string, note: string | null) {
+  const n = await db.statement.updateMany({ where: { id, status: "OPEN" }, data: { status: "SETTLED", settledAt: new Date(), settledBy: actor, settleNote: note } });
+  return n.count === 1;
+}

@@ -6,6 +6,7 @@ import { getProducts, getZones } from "@/lib/catalogue";
 import { deliveryFeeKobo } from "@/lib/pricing";
 import { formatNaira } from "@/lib/money";
 import { site } from "@/lib/site";
+import { getPublicDistributors } from "@/lib/distributors-public";
 import { JsonLd } from "@/components/json-ld";
 import { BagImage } from "@/components/bag-image";
 import { Price } from "@/components/price";
@@ -44,8 +45,9 @@ export default function AreaPage({ params }: PageProps<"/delivery/[area]">) {
 
 async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
   const { area } = await params;
-  const [{ zone, zones }, products] = await Promise.all([findZone(area), getProducts()]);
+  const [{ zone, zones }, products, distributors] = await Promise.all([findZone(area), getProducts(), getPublicDistributors()]);
   if (!zone) notFound();
+  const local = distributors.find((d) => d.zones.some((z) => z.id === zone.id)) ?? null;
 
   const rice = products[0];
   const where = zone.kind === "ABUJA" ? `${zone.name}, Abuja` : zone.name;
@@ -91,6 +93,12 @@ async function Area({ params }: Pick<PageProps<"/delivery/[area]">, "params">) {
         <div className="card p-5"><dt className="text-sm text-muted">Minimum order</dt><dd className="mt-1 text-xl font-bold">{moq || "None"}</dd></div>
       </dl>
       {zone.terms && <p className="mt-3 text-sm text-muted">{zone.terms}</p>}
+      {local && (
+        <p className="mt-4 rounded-2xl bg-brand-soft p-4 text-sm">
+          Your local authorised distributor: <Link href={`/distributors/${local.slug}`} className="font-semibold text-brand underline">{local.name}</Link>.
+          Prices and delivery fees for {zone.name} are theirs; see them in your cart after choosing your area.
+        </p>
+      )}
 
       {sizes.length > 0 && rice && (
         <section className="mt-12">

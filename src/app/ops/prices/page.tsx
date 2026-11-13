@@ -31,7 +31,7 @@ async function Prices() {
       <h1 className="font-display text-2xl font-bold">Prices &amp; stock</h1>
       <p className="text-muted text-sm mt-1">
         Enter amounts in naira. <strong>Retail, wholesale, &ldquo;was&rdquo; price and stock</strong> are HQ&apos;s own (flagship store).
-        <strong>Distributor range</strong> is the lowest and highest retail price distributors may set, and the <strong>HQ fee</strong> is
+        <strong>Distributor price</strong> is what distributors pay HQ per bag when restocking. <strong>Distributor range</strong> is the lowest and highest retail price distributors may set, and the <strong>HQ fee</strong> is
         what HQ charges per bag a distributor sells online (new rates apply to new orders only).
       </p>
       {products.map((p) => (
@@ -42,7 +42,7 @@ async function Prices() {
               id: v.id, sizeKg: v.sizeKg, sku: v.sku, retailPriceKobo: v.retailPriceKobo,
               wholesalePriceKobo: v.wholesalePriceKobo, compareAtPriceKobo: v.compareAtPriceKobo,
               stockQty: v.stocks[0]?.onHand ?? 0, reservedQty: v.stocks[0]?.held ?? 0, active: v.active,
-              minRetailKobo: v.minRetailKobo, maxRetailKobo: v.maxRetailKobo, hqFeeKobo: fees.get(v.id) ?? 0,
+              minRetailKobo: v.minRetailKobo, maxRetailKobo: v.maxRetailKobo, hqFeeKobo: fees.get(v.id) ?? 0, distributorCostKobo: v.distributorCostKobo,
             }))}
           />
         </section>

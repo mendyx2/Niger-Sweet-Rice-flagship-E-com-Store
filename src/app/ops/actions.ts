@@ -39,7 +39,7 @@ export async function logout() {
 
 // ─── Prices & stock ─────────────────────────────────────────────────────────
 
-const PRICE_FIELDS = ["retailPriceKobo", "wholesalePriceKobo", "compareAtPriceKobo", "minRetailKobo", "maxRetailKobo"] as const;
+const PRICE_FIELDS = ["retailPriceKobo", "wholesalePriceKobo", "compareAtPriceKobo", "minRetailKobo", "maxRetailKobo", "distributorCostKobo"] as const;
 const MAX_PRICE_KOBO = 10_000_000_00; // ₦10m sanity cap per bag
 
 export async function updatePrices(_prev: FormState, formData: FormData): Promise<FormState> {

@@ -3,12 +3,18 @@ import { db } from "@/lib/db";
 import { requirePartner } from "@/lib/partner-auth";
 import { ActionForm } from "@/components/action-form";
 import { PartnerNav } from "../partner-nav";
-import { receiveStock, requestAdjustment } from "../actions";
+import { partnerCancelRestock, partnerRequestRestock, partnerRestockPaid, receiveStock, requestAdjustment } from "../actions";
+import { formatNaira } from "@/lib/money";
+import type { RestockLine } from "@/lib/restock";
 
 const LABEL: Record<string, string> = {
   OPENING_BALANCE: "Opening balance", RESTOCK_SENT: "Sent by HQ", RESTOCK_RECEIVED: "Received from HQ", RESTOCK_SHORT: "Short on delivery",
   ONLINE_SALE: "Online sale", WALK_IN_SALE: "Shop sale", SAMPLE: "Free sample", REPLACEMENT: "Replacement bag",
   ORDER_CANCELLED: "Cancelled order returned", DAMAGED: "Damaged", COUNT_ADJUSTMENT: "Count correction", MANUAL_SET: "Set by HQ",
+};
+const RESTOCK_STATUS: Record<string, string> = {
+  REQUESTED: "Requested, waiting for HQ's invoice", INVOICED: "Invoice ready to pay", PAID: "Paid, HQ is preparing dispatch",
+  DISPATCHED: "On its way", RECEIVED: "Received", CANCELLED: "Cancelled",
 };
 const when = (d: Date) => d.toLocaleString("en-NG", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos" });
 
@@ -18,14 +24,16 @@ export default function StockPage() {
 
 async function Stock() {
   const { distributor, member } = await requirePartner({ next: "/partner/stock" });
-  const [stock, movements, lastDelivery] = await Promise.all([
+  const [stock, movements, lastDelivery, restocks, hq] = await Promise.all([
     db.distributorStock.findMany({ where: { distributorId: distributor.id }, include: { variant: true } }),
     db.stockMovement.findMany({ where: { distributorId: distributor.id }, include: { variant: true }, orderBy: { createdAt: "desc" }, take: 30 }),
     db.stockMovement.findFirst({ where: { distributorId: distributor.id, type: { in: ["RESTOCK_RECEIVED", "RESTOCK_SHORT"] } }, orderBy: { createdAt: "desc" } }),
+    db.restockOrder.findMany({ where: { distributorId: distributor.id }, orderBy: { createdAt: "desc" }, take: 10 }),
+    db.distributor.findUnique({ where: { id: "hq" } }),
   ]);
-  // Everything recorded with the most recent receipt (same minute), to show "last delivery" after confirming.
+  // Everything recorded with the most recent receipt (same transaction, within seconds), to show "last delivery" after confirming.
   const lastLines = lastDelivery
-    ? movements.filter((m) => (m.type === "RESTOCK_RECEIVED" || m.type === "RESTOCK_SHORT") && Math.abs(m.createdAt.getTime() - lastDelivery.createdAt.getTime()) < 60_000)
+    ? movements.filter((m) => (m.type === "RESTOCK_RECEIVED" || m.type === "RESTOCK_SHORT") && Math.abs(m.createdAt.getTime() - lastDelivery.createdAt.getTime()) < 5_000)
     : [];
   const rows = stock.sort((a, b) => b.variant.sizeKg - a.variant.sizeKg);
   const inTransit = rows.filter((s) => s.inTransit > 0);
@@ -71,6 +79,44 @@ async function Stock() {
           </ActionForm>
         </section>
       )}
+
+      <section className="mt-6 card p-5">
+        <h2 className="font-semibold text-lg">Buy stock from HQ</h2>
+        {restocks.filter((r) => r.status !== "RECEIVED" && r.status !== "CANCELLED").map((r) => (
+          <div key={r.id} className={`mt-3 rounded-2xl p-4 text-sm ${r.status === "INVOICED" ? "border-2 border-cta" : "bg-background"}`}>
+            <p className="font-semibold">{r.number} · {RESTOCK_STATUS[r.status]}</p>
+            <p className="text-muted">
+              {(r.lines as RestockLine[]).map((l) => `${l.qty}×${l.sizeKg}kg`).join(", ")}
+              {(r.freeLines as RestockLine[] | null)?.length ? ` + free ${(r.freeLines as RestockLine[]).map((l) => `${l.qty}×${l.sizeKg}kg`).join(", ")}` : ""}
+            </p>
+            {r.status === "INVOICED" && hq && (
+              <>
+                <p className="mt-2">
+                  Pay <strong>{formatNaira(r.totalKobo)}</strong> to <strong>{hq.bankName} {hq.accountNumber}</strong> ({hq.accountName}). Use <strong>{r.number}</strong> as the narration.
+                </p>
+                {r.paidMarkedAt ? <p className="mt-2 text-brand">You&apos;ve told HQ you paid. Waiting for HQ to confirm.</p> : (
+                  <div className="mt-3"><ActionForm action={partnerRestockPaid} submit="I've paid HQ" buttonClass="btn-cta py-2"><input type="hidden" name="id" value={r.id} /></ActionForm></div>
+                )}
+              </>
+            )}
+            {(r.status === "REQUESTED" || (r.status === "INVOICED" && !r.paidMarkedAt)) && (
+              <div className="mt-2"><ActionForm action={partnerCancelRestock} submit="Cancel request" buttonClass="text-xs text-muted underline" confirm="Cancel this request?"><input type="hidden" name="id" value={r.id} /></ActionForm></div>
+            )}
+          </div>
+        ))}
+        <ActionForm action={partnerRequestRestock} submit="Request stock" className="mt-4 space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {rows.map((s) => (
+              <label key={s.variantId} className="block">
+                <span className="font-semibold">{s.variant.sizeKg}kg</span>
+                {s.variant.distributorCostKobo != null && <span className="text-xs text-muted"> · {formatNaira(s.variant.distributorCostKobo)} each</span>}
+                <input name={`want:${s.variantId}`} type="number" min={0} placeholder="0" className="field" aria-label={`Request ${s.variant.sizeKg}kg bags`} />
+              </label>
+            ))}
+          </div>
+          <label className="block"><span className="font-semibold">Note to HQ <span className="font-normal text-muted">(optional)</span></span><input name="note" className="field" /></label>
+        </ActionForm>
+      </section>
 
       <section className="mt-6 card p-5">
         <h2 className="font-semibold text-lg">Report damaged bags or a count difference</h2>

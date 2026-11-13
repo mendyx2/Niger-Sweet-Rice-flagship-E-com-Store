@@ -143,27 +143,29 @@ model Product {
 /// Prices are null until staff set them in /ops/prices. A variant without a
 /// retail price is shown as "Price coming soon" and cannot be bought.
 model Variant {
-  id                 String             @id @default(cuid())
-  productId          String
-  product            Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku                String             @unique
-  sizeKg             Int
-  retailPriceKobo    Int?
-  wholesalePriceKobo Int?
-  compareAtPriceKobo Int? // "was" price for promotions
+  id                  String             @id @default(cuid())
+  productId           String
+  product             Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku                 String             @unique
+  sizeKg              Int
+  retailPriceKobo     Int?
+  wholesalePriceKobo  Int?
+  compareAtPriceKobo  Int? // "was" price for promotions
   /// Range distributors must price within (set by HQ). Null = no limit on that side.
-  minRetailKobo      Int?
-  maxRetailKobo      Int?
-  isSampleSize       Boolean            @default(false) // 1kg is the free-sample size
-  imageUrl           String? // product photo for this size; falls back to the 5kg photo
-  active             Boolean            @default(true)
-  updatedAt          DateTime           @updatedAt
-  priceChanges       PriceChange[]
-  orderItems         OrderItem[]
-  stocks             DistributorStock[]
-  distributorPrices  DistributorPrice[]
-  hqFees             HqFeeRate[]
-  stockMovements     StockMovement[]
+  minRetailKobo       Int?
+  maxRetailKobo       Int?
+  /// What a distributor pays HQ per bag when restocking.
+  distributorCostKobo Int?
+  isSampleSize        Boolean            @default(false) // 1kg is the free-sample size
+  imageUrl            String? // product photo for this size; falls back to the 5kg photo
+  active              Boolean            @default(true)
+  updatedAt           DateTime           @updatedAt
+  priceChanges        PriceChange[]
+  orderItems          OrderItem[]
+  stocks              DistributorStock[]
+  distributorPrices   DistributorPrice[]
+  hqFees              HqFeeRate[]
+  stockMovements      StockMovement[]
 
   @@unique([productId, sizeKg])
 }
@@ -543,6 +545,8 @@ model Distributor {
   movements   StockMovement[]
   orders      Order[]
   walkInSales WalkInSale[]
+  restocks    RestockOrder[]
+  statements  Statement[]
 }
 
 enum DistributorRole {
@@ -674,4 +678,69 @@ model WalkInSale {
   createdAt     DateTime    @default(now())
 
   @@index([distributorId, createdAt])
+}
+
+enum RestockStatus {
+  REQUESTED // distributor asked for stock
+  INVOICED // HQ confirmed quantities and price; distributor to pay HQ
+  PAID // HQ confirmed the distributor's transfer
+  DISPATCHED // stock left HQ (in transit at the distributor)
+  RECEIVED // distributor confirmed receipt
+  CANCELLED
+}
+
+/// A distributor buying stock from HQ.
+model RestockOrder {
+  id            String        @id @default(cuid())
+  number        String        @unique // e.g. RS-7K2M9Q, used as the transfer narration
+  distributorId String
+  distributor   Distributor   @relation(fields: [distributorId], references: [id])
+  status        RestockStatus @default(REQUESTED)
+  /// [{ variantId, sizeKg, qty, unitCostKobo }]: bought bags
+  lines         Json
+  /// [{ variantId, sizeKg, qty }]: free bags HQ adds to replace samples/replacements given
+  freeLines     Json?
+  totalKobo     Int           @default(0)
+  note          String?
+  reference     String? // waybill / dispatch note
+  requestedBy   String
+  paidMarkedAt  DateTime? // distributor says they've paid HQ
+  invoicedAt    DateTime?
+  paidAt        DateTime?
+  dispatchedAt  DateTime?
+  receivedAt    DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([distributorId, status])
+  @@index([status])
+}
+
+enum StatementStatus {
+  OPEN // closed by HQ, awaiting settlement
+  SETTLED
+}
+
+/// A distributor's monthly statement with HQ, frozen when HQ closes the month.
+model Statement {
+  id              String          @id @default(cuid())
+  distributorId   String
+  distributor     Distributor     @relation(fields: [distributorId], references: [id])
+  month           String // "2026-11"
+  feesKobo        Int
+  creditsKobo     Int
+  netKobo         Int // positive = distributor owes HQ
+  bagsToReplace   Json
+  onlineOrders    Int
+  goodsOnlineKobo Int
+  shopTotalKobo   Int
+  status          StatementStatus @default(OPEN)
+  closedBy        String
+  closedAt        DateTime        @default(now())
+  settledAt       DateTime?
+  settledBy       String?
+  settleNote      String?
+
+  @@unique([distributorId, month])
 }

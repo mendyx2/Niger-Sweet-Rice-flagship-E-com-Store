@@ -7,8 +7,7 @@ import { db } from "@/lib/db";
 import { requireOps } from "@/lib/ops-auth";
 import { normalizeNgPhone, maskPhone } from "@/lib/phone";
 import { makeReferralCode } from "@/lib/auth";
-import { HQ_ID } from "@/lib/network";
-import { moveStock } from "@/lib/stock";
+import { dispatchBags, RestockError } from "@/lib/restock";
 import { sendSms } from "@/lib/sms";
 import { site } from "@/lib/site";
 import { TAGS } from "@/lib/catalogue";
@@ -180,17 +179,9 @@ export async function sendStock(_prev: FormState, formData: FormData): Promise<F
   if (lines.some((l) => !Number.isInteger(l.qty) || l.qty < 0 || l.qty > 100_000)) return { ok: false, message: "Quantities must be whole numbers." };
 
   try {
-    await db.$transaction(async (tx) => {
-      for (const { v, qty } of lines) {
-        const hq = await tx.distributorStock.findUnique({ where: { distributorId_variantId: { distributorId: HQ_ID, variantId: v.id } } });
-        if ((hq?.onHand ?? 0) - (hq?.held ?? 0) < qty) throw new Error(`HQ only has ${(hq?.onHand ?? 0) - (hq?.held ?? 0)} × ${v.sizeKg}kg free to send.`);
-        const note = `Sent to ${d.name}`;
-        await moveStock(tx, { distributorId: HQ_ID, variantId: v.id, delta: -qty, type: "RESTOCK_SENT", actor, reference: reference ?? undefined, note });
-        await moveStock(tx, { distributorId: id, variantId: v.id, transitDelta: qty, type: "RESTOCK_SENT", actor, reference: reference ?? undefined, note: "From HQ, awaiting receipt" });
-      }
-    });
+    await db.$transaction((tx) => dispatchBags(tx, id, d.name, lines.map(({ v, qty }) => ({ variantId: v.id, sizeKg: v.sizeKg, qty })), actor, reference ?? undefined));
   } catch (e) {
-    if (e instanceof Error && e.message.startsWith("HQ only has")) return { ok: false, message: e.message };
+    if (e instanceof RestockError) return { ok: false, message: e.message };
     throw e;
   }
   if (d.phone) await sendSms(d.phone, `${site.name}: HQ has dispatched ${lines.map((l) => `${l.qty}×${l.v.sizeKg}kg`).join(", ")}${reference ? ` (ref ${reference})` : ""}. Confirm when received: ${site.url}/partner/stock`);

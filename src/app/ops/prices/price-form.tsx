@@ -7,7 +7,7 @@ import { updatePrices } from "../actions";
 type Row = {
   id: string; sizeKg: number; sku: string; retailPriceKobo: number | null; wholesalePriceKobo: number | null;
   compareAtPriceKobo: number | null; stockQty: number; reservedQty: number; active: boolean;
-  minRetailKobo: number | null; maxRetailKobo: number | null; hqFeeKobo: number;
+  minRetailKobo: number | null; maxRetailKobo: number | null; hqFeeKobo: number; distributorCostKobo: number | null;
 };
 
 const input = "w-28 rounded-lg border border-border bg-surface px-2 py-1.5 text-right";
@@ -24,6 +24,7 @@ export function PriceForm({ variants }: { variants: Row[] }) {
               <th className="p-3">Retail ₦</th>
               <th className="p-3">Wholesale ₦ <span className="font-normal">(sellers)</span></th>
               <th className="p-3">&ldquo;Was&rdquo; ₦ <span className="font-normal">(promo)</span></th>
+              <th className="p-3">Distributor price ₦ <span className="font-normal">(they pay HQ)</span></th>
               <th className="p-3">Distributor range ₦</th>
               <th className="p-3">HQ fee / bag ₦</th>
               <th className="p-3">HQ stock (bags)</th>
@@ -47,6 +48,10 @@ export function PriceForm({ variants }: { variants: Row[] }) {
                 <td className="p-3">
                   <input aria-label={`${v.sizeKg}kg was price`} name={`compareAtPriceKobo:${v.id}`} inputMode="decimal"
                     defaultValue={koboToNairaInput(v.compareAtPriceKobo)} className={input} />
+                </td>
+                <td className="p-3">
+                  <input aria-label={`${v.sizeKg}kg distributor price`} name={`distributorCostKobo:${v.id}`} inputMode="decimal"
+                    defaultValue={koboToNairaInput(v.distributorCostKobo)} className={input} />
                 </td>
                 <td className="p-3 whitespace-nowrap">
                   <input aria-label={`${v.sizeKg}kg lowest distributor price`} name={`minRetailKobo:${v.id}`} inputMode="decimal"
