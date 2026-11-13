@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { requireOps } from "@/lib/ops-auth";
 import { closeStatement, currentMonth, isMonth, settleStatement } from "@/lib/statement";
 import { formatNaira } from "@/lib/money";
-import { sendSms } from "@/lib/sms";
+import { notifyDistributor } from "@/lib/staff-alerts";
 import { site } from "@/lib/site";
 
 export type FormState = { ok: boolean; message: string } | null;
@@ -18,8 +18,8 @@ export async function closeMonth(_prev: FormState, formData: FormData): Promise<
   for (const d of distributors) {
     const existed = await db.statement.findUnique({ where: { distributorId_month: { distributorId: d.id, month } } });
     const s = await closeStatement(d.id, month, actor);
-    if (!existed && d.phone && s.netKobo !== 0) {
-      await sendSms(d.phone, `${site.name}: your ${month} statement is ready: ${s.netKobo > 0 ? "you owe HQ" : "HQ owes you"} ${formatNaira(Math.abs(s.netKobo))}. Details: ${site.url}/partner/reports?m=${month}`);
+    if (!existed && s.netKobo !== 0) {
+      await notifyDistributor(d.id, `${month} statement`, `Your ${month} statement is ready: ${s.netKobo > 0 ? "you owe HQ" : "HQ owes you"} ${formatNaira(Math.abs(s.netKobo))}. Details: ${site.url}/partner/reports?m=${month}`);
     }
   }
   refresh();

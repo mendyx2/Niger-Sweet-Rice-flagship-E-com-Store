@@ -49,6 +49,7 @@ model User {
   points            PointsTransaction[]
   returnClaims      ReturnClaim[]
   sessions          Session[]
+  telegramChats     TelegramChat[]
   distributorMember DistributorMember?
 }
 
@@ -530,6 +531,8 @@ model Distributor {
   address       String?
   hours         String?
   slaHours      Int               @default(4) // time to confirm a payment before HQ is alerted
+  /// Where staff alerts (new orders, payments, restocks, statements) are emailed. Optional.
+  alertEmail    String?
   /// Bank details customers pay into. Only HQ can change them (logged, distributor alerted).
   bankName      String?
   accountNumber String?
@@ -743,4 +746,18 @@ model Statement {
   settleNote      String?
 
   @@unique([distributorId, month])
+}
+
+/// A Telegram chat that receives staff alerts: a distributor team member's
+/// personal chat (userId set) or HQ's alert chat/group (isHq).
+model TelegramChat {
+  id       String   @id @default(cuid())
+  chatId   String   @unique
+  userId   String?
+  user     User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isHq     Boolean  @default(false)
+  title    String?
+  linkedAt DateTime @default(now())
+
+  @@index([userId])
 }

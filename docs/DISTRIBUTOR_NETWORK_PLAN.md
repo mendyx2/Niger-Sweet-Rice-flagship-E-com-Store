@@ -226,6 +226,15 @@ Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-ho
 - **Google stock depletion sheet:** every finished stock movement is appended to a "Stock movements" tab, and a "Current stock" tab shows on hand, held, in transit, usage over the last 14 days and days of stock left per distributor. It runs with the housekeeping job, retries anything not yet sent, and stays switched off until `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_SERVICE_ACCOUNT_KEY` are set. Tested against a simulated Google API; needs one real run once the account exists.
 - **Public distributor pages** (`/distributors/<name>`): areas, address, hours and phone, plus "Shop in <area>" buttons that set the customer's area. Each distributor gets a share link and a printable QR code (partner Prices & delivery page and HQ's distributor page). Area pages name the local distributor, and the sitemap includes distributor pages.
 
+**Staff alerts moved off SMS (13 Nov 2026)**
+- **Distributor alerts** (new order, "customer says they've paid", restock invoice and dispatch, stock sent by HQ, monthly statement) go to each team member's Telegram (connected under **Alerts** in the partner portal) and/or the distributor's alert email.
+- **HQ alerts** (payments not confirmed in time, stock requests and payments, shortfalls, damage reports) go to HQ's Telegram chat or group (connected on `/ops/distributors`) and/or `OPS_ALERT_EMAIL`.
+- **Still SMS:** login codes, the bank-account-change alert, the one-time "you've been added" sign-in invitation to new team members, and every customer message.
+- **Setup:**
+  1. Create a bot with @BotFather and set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`.
+  2. Once the site is live, press "Connect bot to site".
+  3. For email, set `RESEND_API_KEY`, `EMAIL_FROM` and `OPS_ALERT_EMAIL`.
+
 **Not built yet**
 - Distributor-only promo codes.
 - An HQ map view of the network.

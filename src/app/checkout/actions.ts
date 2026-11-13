@@ -106,7 +106,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     throw e;
   }
 
-  await notifyNewTransferOrder({ ...order, payTo }, distributor.phone, PAYMENT_HOLD_HOURS);
+  await notifyNewTransferOrder({ ...order, payTo }, distributor.id, PAYMENT_HOLD_HOURS);
   return { ok: true, url: `/orders/${order.number}` };
 }
 
@@ -121,7 +121,7 @@ export async function markTransferSent(number: string): Promise<{ ok: boolean; m
       db.order.update({ where: { id: order.id }, data: { customerMarkedPaidAt: new Date() } }),
       db.orderStatusEvent.create({ data: { orderId: order.id, status: "PENDING_PAYMENT", note: "Customer says the transfer was sent", actor: user.id } }),
     ]);
-    await notifyCustomerSaysPaid(order, order.distributor.phone);
+    await notifyCustomerSaysPaid(order, order.distributorId);
   }
   return { ok: true, message: "Thanks! The seller will confirm once the money arrives in their account." };
 }

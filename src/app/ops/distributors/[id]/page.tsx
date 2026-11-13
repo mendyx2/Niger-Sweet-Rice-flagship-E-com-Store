@@ -34,6 +34,7 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
     },
   });
   if (!d) notFound();
+  const telegramCount = await db.telegramChat.count({ where: { user: { distributorMember: { distributorId: id } } } });
   const [zones, pending, movements] = await Promise.all([
     db.deliveryZone.findMany({ where: { kind: { not: "PICKUP" } }, orderBy: { sortOrder: "asc" }, include: { distributor: { select: { id: true, name: true } } } }),
     db.stockMovement.findMany({ where: { distributorId: id, status: "PENDING_APPROVAL" }, include: { variant: true }, orderBy: { createdAt: "asc" } }),
@@ -55,9 +56,15 @@ async function Distributor({ params }: Pick<PageProps<"/ops/distributors/[id]">,
           <ActionForm action={updateDistributor} submit="Save details" className="mt-3 space-y-3 text-sm">
             <input type="hidden" name="id" value={d.id} />
             <label className="block"><span className="font-semibold">Business name</span><input name="name" defaultValue={d.name} required className="field" /></label>
-            <label className="block"><span className="font-semibold">Phone (gets new-order alerts)</span><input name="phone" type="tel" defaultValue={d.phone ? formatNgPhone(d.phone) : ""} className="field" /></label>
+            <label className="block"><span className="font-semibold">Phone (shown to customers)</span><input name="phone" type="tel" defaultValue={d.phone ? formatNgPhone(d.phone) : ""} className="field" /></label>
             <label className="block"><span className="font-semibold">Address</span><input name="address" defaultValue={d.address ?? ""} className="field" /></label>
             <label className="block"><span className="font-semibold">Opening hours</span><input name="hours" defaultValue={d.hours ?? ""} className="field" /></label>
+            {!d.isHq && (
+              <label className="block"><span className="font-semibold">Alert email <span className="font-normal text-muted">(new orders, payments, stock; optional)</span></span>
+                <input name="alertEmail" type="email" defaultValue={d.alertEmail ?? ""} className="field" />
+                <span className="text-xs text-muted">{telegramCount} team Telegram chat{telegramCount === 1 ? "" : "s"} connected. Team members connect Telegram in their portal under Alerts.</span>
+              </label>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <label className="block"><span className="font-semibold">Hours to confirm a payment</span><input name="slaHours" type="number" min={1} max={72} defaultValue={d.slaHours} className="field" /></label>
               <label className="block"><span className="font-semibold">Status</span>

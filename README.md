@@ -19,8 +19,9 @@ npm run db:seed           # bag sizes + delivery zones (prices start empty)
 npm run dev               # http://localhost:3000
 ```
 
-Customers pay by **bank transfer** to the seller for their area (a distributor, or HQ). Without `TERMII_API_KEY`,
-local development shows the SMS login code on screen (never in production).
+Customers pay by **bank transfer** to the seller for their area (a distributor, or HQ). SMS (Termii) is used for login
+codes, customer messages and the bank-change security alert; staff alerts go to Telegram and/or email (free). Without
+the provider keys, local development shows the login code on screen and prints messages to the server log.
 
 Staff screens live at **/ops** (sign in with `OPS_PASSWORD`). Distributors use **/partner** (phone sign-in; HQ adds their number in `/ops/distributors`).
 

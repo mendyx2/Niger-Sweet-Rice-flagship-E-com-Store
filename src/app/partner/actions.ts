@@ -10,6 +10,7 @@ import { cancelRestock, distributorMarksRestockPaid, markRestocksReceived, reque
 import { nairaToKobo, formatNaira } from "@/lib/money";
 import { withinBand } from "@/lib/network-rules";
 import { alertHq } from "@/lib/notify";
+import { notifyDistributor } from "@/lib/staff-alerts";
 import { normalizeNgPhone, maskPhone } from "@/lib/phone";
 import { makeReferralCode } from "@/lib/auth";
 import { sendSms } from "@/lib/sms";
@@ -286,4 +287,28 @@ export async function partnerCancelRestock(_prev: FormState, formData: FormData)
     if (e instanceof RestockError) return { ok: false, message: e.message };
     throw e;
   }
+}
+
+// ─── Staff alerts (Telegram / email) ────────────────────────────────────────
+
+export async function disconnectTelegram(formData: FormData) {
+  const { user } = await requirePartner();
+  await db.telegramChat.deleteMany({ where: { id: String(formData.get("id") ?? ""), userId: user.id } });
+  refresh();
+}
+
+export async function saveAlertEmail(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { distributor, actor } = await requirePartner({ ownerOnly: true });
+  const parsed = z.union([z.literal(""), z.email("Enter a valid email address.").max(120)]).safeParse(String(formData.get("alertEmail") ?? "").trim());
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  await db.distributor.update({ where: { id: distributor.id }, data: { alertEmail: parsed.data.toLowerCase() || null } });
+  await db.auditLog.create({ data: { actor, action: "partner.alert_email", entity: "Distributor", entityId: distributor.id } });
+  refresh();
+  return { ok: true, message: parsed.data ? "Saved. Alerts will also be emailed there." : "Email alerts turned off." };
+}
+
+export async function sendTestAlert(): Promise<FormState> {
+  const { distributor } = await requirePartner();
+  const sent = await notifyDistributor(distributor.id, "Test alert", "This is a test alert. If you can read this, alerts are working.");
+  return sent ? { ok: true, message: `Test alert sent to ${sent} place${sent === 1 ? "" : "s"}.` } : { ok: false, message: "Nothing is connected yet: connect Telegram or add an email above." };
 }

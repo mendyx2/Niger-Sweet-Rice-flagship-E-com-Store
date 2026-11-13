@@ -3,8 +3,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { HQ_ID, type Tx } from "./network";
 import { moveStock } from "./stock";
-import { sendSms } from "./sms";
-import { alertHq } from "./notify";
+import { alertHq, notifyDistributor } from "./staff-alerts";
 import { formatNaira } from "./money";
 import { site } from "./site";
 
@@ -89,9 +88,8 @@ export async function invoiceRestock(id: string, qty: Map<string, number>, free:
     },
   });
   await db.auditLog.create({ data: { actor, action: "restock.invoice", entity: "RestockOrder", entityId: id, after: { lines, freeLines, total } } });
-  const to = r.distributor.phone;
-  if (to && total > 0) {
-    await sendSms(to, `${site.name}: invoice ${r.number} for ${formatNaira(total)}. Pay ${hq.bankName} ${hq.accountNumber} (${hq.accountName}), narration ${r.number}, then tap "I've paid" at ${site.url}/partner/stock`);
+  if (total > 0) {
+    await notifyDistributor(r.distributorId, `Invoice ${r.number}`, `Invoice ${r.number} for ${formatNaira(total)}. Pay ${hq.bankName} ${hq.accountNumber} (${hq.accountName}), narration ${r.number}, then tap "I've paid HQ" at ${site.url}/partner/stock`);
   }
   return total;
 }
@@ -127,9 +125,7 @@ export async function dispatchRestock(id: string, reference: string | null, acto
     if (n.count !== 1) throw new RestockError("Already dispatched.");
     await dispatchBags(tx, r.distributorId, r.distributor.name, [...merged.values()], actor, reference ?? r.number);
   });
-  if (r.distributor.phone) {
-    await sendSms(r.distributor.phone, `${site.name}: ${r.number} is on its way (${[...merged.values()].map((l) => `${l.qty}×${l.sizeKg}kg`).join(", ")}). Confirm when received: ${site.url}/partner/stock`);
-  }
+  await notifyDistributor(r.distributorId, `${r.number} dispatched`, `${r.number} is on its way (${[...merged.values()].map((l) => `${l.qty}×${l.sizeKg}kg`).join(", ")}). Confirm when received: ${site.url}/partner/stock`);
 }
 
 export async function cancelRestock(id: string, actor: string, distributorId?: string) {

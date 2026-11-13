@@ -99,7 +99,7 @@ export async function requestSample(_prev: SampleState, formData: FormData): Pro
   if (fee === 0) {
     await markOrderPaid(order.number, { source: "free-sample" });
   } else {
-    await notifyNewTransferOrder({ ...order, payTo }, distributor.phone, PAYMENT_HOLD_HOURS);
+    await notifyNewTransferOrder({ ...order, payTo }, distributor.id, PAYMENT_HOLD_HOURS);
   }
   return { ok: true, url: `/orders/${order.number}` };
 }

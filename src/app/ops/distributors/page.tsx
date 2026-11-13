@@ -5,7 +5,8 @@ import { requireOps } from "@/lib/ops-auth";
 import { formatNgPhone } from "@/lib/phone";
 import { ActionForm } from "@/components/action-form";
 import { OpsNav } from "../ops-nav";
-import { createDistributor } from "./actions";
+import { createDistributor, removeHqChat, setupTelegramBot, testHqAlert } from "./actions";
+import { telegramLinks } from "@/lib/telegram-links";
 
 export default function DistributorsPage() {
   return <Suspense fallback={<p className="text-muted">Loading…</p>}><Distributors /></Suspense>;
@@ -22,6 +23,7 @@ async function Distributors() {
       orders: { where: { status: "PENDING_PAYMENT", customerMarkedPaidAt: { not: null } }, select: { id: true } },
     },
   });
+  const [hqChats, links] = await Promise.all([db.telegramChat.findMany({ where: { isHq: true } }), telegramLinks("hq")]);
   const pendingAdjustments = await db.stockMovement.groupBy({ by: ["distributorId"], where: { status: "PENDING_APPROVAL" }, _count: true });
   const adj = new Map(pendingAdjustments.map((a) => [a.distributorId, a._count]));
 
@@ -70,6 +72,34 @@ async function Distributors() {
             );
           })}
         </ul>
+        <div className="space-y-6">
+        <section className="card p-5">
+          <h2 className="font-semibold text-lg">HQ alerts</h2>
+          <p className="mt-1 text-sm text-muted">Payments waiting too long, stock requests, delivery shortfalls and damage reports. Free on Telegram and/or email.</p>
+          {hqChats.length > 0 ? (
+            <ul className="mt-3 space-y-2 text-sm">
+              {hqChats.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-brand-soft px-3 py-2">
+                  <span>✓ Telegram{c.title ? `: ${c.title}` : ""}</span>
+                  <form action={removeHqChat}><input type="hidden" name="id" value={c.id} /><button className="text-xs underline">Remove</button></form>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-3 text-sm text-danger">No HQ Telegram chat connected.</p>}
+          {links && (
+            <div className="mt-3 flex flex-wrap gap-2 text-sm">
+              <a href={links.personal} target="_blank" rel="noopener noreferrer" className="btn-cta py-2">Connect my Telegram</a>
+              <a href={links.group} target="_blank" rel="noopener noreferrer" className="btn-outline py-2">Add to a staff group</a>
+            </div>
+          )}
+          <p className="mt-3 text-sm">{process.env.OPS_ALERT_EMAIL ? <>Email: <strong>{process.env.OPS_ALERT_EMAIL}</strong></> : <span className="text-muted">No HQ alert email (set OPS_ALERT_EMAIL).</span>}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <ActionForm action={testHqAlert} submit="Send test alert" buttonClass="btn-outline py-2 text-sm" />
+            <ActionForm action={setupTelegramBot} submit="Connect bot to site" buttonClass="rounded-full border border-border px-4 py-2 text-sm" />
+          </div>
+          <p className="mt-2 text-xs text-muted">&ldquo;Connect bot to site&rdquo; is needed once, after the site is live and the bot token is added.</p>
+        </section>
+
         <section className="card p-5">
           <h2 className="font-semibold text-lg">Add a distributor</h2>
           <ActionForm action={createDistributor} submit="Add distributor" className="mt-3 space-y-3 text-sm">
@@ -79,6 +109,7 @@ async function Distributors() {
             <label className="block"><span className="font-semibold">Opening hours</span><input name="hours" placeholder="Mon–Sat, 8am–6pm" className="field" /></label>
           </ActionForm>
         </section>
+        </div>
       </div>
     </>
   );

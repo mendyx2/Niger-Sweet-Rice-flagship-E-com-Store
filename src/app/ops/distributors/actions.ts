@@ -9,6 +9,8 @@ import { normalizeNgPhone, maskPhone } from "@/lib/phone";
 import { makeReferralCode } from "@/lib/auth";
 import { dispatchBags, RestockError } from "@/lib/restock";
 import { sendSms } from "@/lib/sms";
+import { alertHq, notifyDistributor } from "@/lib/staff-alerts";
+import { isTelegramConfigured, registerWebhook } from "@/lib/telegram";
 import { site } from "@/lib/site";
 import { TAGS } from "@/lib/catalogue";
 
@@ -45,6 +47,7 @@ export async function updateDistributor(_prev: FormState, formData: FormData): P
   const parsed = details.extend({
     slaHours: z.coerce.number().int().min(1).max(72),
     status: z.enum(["ACTIVE", "SUSPENDED"]),
+    alertEmail: z.union([z.literal(""), z.email("Enter a valid alert email.").max(120)]).optional(),
   }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const f = parsed.data;
@@ -53,7 +56,7 @@ export async function updateDistributor(_prev: FormState, formData: FormData): P
   const before = await db.distributor.findUnique({ where: { id } });
   if (!before) return { ok: false, message: "Distributor not found." };
   if (before.isHq && f.status === "SUSPENDED") return { ok: false, message: "HQ can't be suspended." };
-  const after = { name: f.name, phone, address: f.address || null, hours: f.hours || null, slaHours: f.slaHours, status: f.status };
+  const after = { name: f.name, phone, address: f.address || null, hours: f.hours || null, slaHours: f.slaHours, status: f.status, alertEmail: f.alertEmail?.toLowerCase() || null };
   await db.$transaction([
     db.distributor.update({ where: { id }, data: after }),
     db.auditLog.create({ data: { actor, action: "distributor.update", entity: "Distributor", entityId: id, before: { status: before.status, name: before.name }, after } }),
@@ -184,7 +187,7 @@ export async function sendStock(_prev: FormState, formData: FormData): Promise<F
     if (e instanceof RestockError) return { ok: false, message: e.message };
     throw e;
   }
-  if (d.phone) await sendSms(d.phone, `${site.name}: HQ has dispatched ${lines.map((l) => `${l.qty}×${l.v.sizeKg}kg`).join(", ")}${reference ? ` (ref ${reference})` : ""}. Confirm when received: ${site.url}/partner/stock`);
+  await notifyDistributor(id, "Stock on its way", `HQ has dispatched ${lines.map((l) => `${l.qty}×${l.v.sizeKg}kg`).join(", ")}${reference ? ` (ref ${reference})` : ""}. Confirm when received: ${site.url}/partner/stock`);
   updateTag(TAGS.catalogue);
   refresh();
   return { ok: true, message: `Dispatched ${lines.map((l) => `${l.qty} × ${l.v.sizeKg}kg`).join(", ")}. It shows as in transit until ${d.name} confirms receipt.` };
@@ -209,4 +212,35 @@ export async function reviewAdjustment(formData: FormData) {
     await tx.auditLog.create({ data: { actor, action: approve ? "stock.adjust_approved" : "stock.adjust_rejected", entity: "StockMovement", entityId: id } });
   });
   refresh();
+}
+
+// ─── HQ alert channels ──────────────────────────────────────────────────────
+
+export async function removeHqChat(formData: FormData) {
+  const actor = await requireOps();
+  const id = String(formData.get("id") ?? "");
+  await db.telegramChat.deleteMany({ where: { id, isHq: true } });
+  await db.auditLog.create({ data: { actor, action: "alerts.hq_chat_remove", entity: "TelegramChat", entityId: id } });
+  refresh();
+}
+
+/** Tells Telegram where to deliver messages for our bot. Needs the live https site. */
+export async function setupTelegramBot(): Promise<FormState> {
+  await requireOps();
+  if (!isTelegramConfigured() || !process.env.TELEGRAM_WEBHOOK_SECRET) {
+    return { ok: false, message: "Add TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET to the site settings first." };
+  }
+  if (!site.url.startsWith("https://")) return { ok: false, message: "The site must be live on https before Telegram can reach it." };
+  try {
+    await registerWebhook(`${site.url}/api/telegram/webhook`);
+    return { ok: true, message: "Telegram bot is connected to the site." };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Telegram setup failed." };
+  }
+}
+
+export async function testHqAlert(): Promise<FormState> {
+  await requireOps();
+  const sent = await alertHq("This is a test alert. If you can read this, HQ alerts are working.", "Test alert");
+  return sent ? { ok: true, message: `Test alert sent to ${sent} place${sent === 1 ? "" : "s"}.` } : { ok: false, message: "No HQ Telegram chat or alert email is connected yet." };
 }

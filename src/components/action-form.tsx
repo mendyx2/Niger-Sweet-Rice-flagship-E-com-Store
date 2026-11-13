@@ -14,7 +14,7 @@ export function ActionForm({
 }: {
   id?: string;
   action: (prev: State, formData: FormData) => Promise<State>;
-  children: ReactNode;
+  children?: ReactNode;
   submit: string;
   className?: string;
   confirm?: string;
