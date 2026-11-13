@@ -396,7 +396,7 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 3. Domain, hosting (Vercel), Postgres (Neon) and, if more than one server, Upstash Redis
 4. Scheduled call to `/api/cron/release-reservations` every 10 minutes with `CRON_SECRET`
 5. Real store address, phone, map coordinates; Google Business Profile with the same details
-6. Photos of the 50kg and 25kg bags (and a single-pouch 1kg photo if sold singly)
+6. A photo of the 50kg bag (it currently uses the 25kg photo) and a single-pouch 1kg photo if sold singly
 7. Confirmed prices, stock and delivery fees in `/ops`
 8. GA4 measurement ID and Meta Pixel ID (optional)
 9. Lawyer review of privacy policy and terms

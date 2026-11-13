@@ -10,8 +10,9 @@ import { PrismaClient, ZoneKind } from "@prisma/client";
 const db = new PrismaClient();
 
 const SIZES = [
-  { sizeKg: 50, stockQty: 0, isSampleSize: false, imageUrl: null },
-  { sizeKg: 25, stockQty: 0, isSampleSize: false, imageUrl: null },
+  // One photo for both big bags until a 50kg photo is available (the bag pictured is labelled 25kg).
+  { sizeKg: 50, stockQty: 0, isSampleSize: false, imageUrl: "/images/sweet-rice-25kg.jpg" },
+  { sizeKg: 25, stockQty: 0, isSampleSize: false, imageUrl: "/images/sweet-rice-25kg.jpg" },
   { sizeKg: 5, stockQty: 0, isSampleSize: false, imageUrl: "/images/sweet-rice-5kg.jpg" },
   { sizeKg: 1, stockQty: 0, isSampleSize: true, imageUrl: "/images/sweet-rice-1kg.jpg" },
 ];
