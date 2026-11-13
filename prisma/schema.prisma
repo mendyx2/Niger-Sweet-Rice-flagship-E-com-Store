@@ -1,4 +1,4 @@
-// Niger Sweet Rice flagship store: database schema.
+// Naija Sweet Rice flagship store: database schema.
 // All money values are stored as integer KOBO (₦1 = 100 kobo) to avoid
 // floating-point rounding errors. Format for display with src/lib/money.ts.
 

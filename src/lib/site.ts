@@ -1,7 +1,7 @@
 /** Public store details. Set in env so they match Google Business Profile exactly (NAP consistency). */
 export const site = {
   /** Brand name shown everywhere. One place to change it. */
-  name: process.env.NEXT_PUBLIC_BRAND_NAME ?? "Niger Sweet Rice",
+  name: process.env.NEXT_PUBLIC_BRAND_NAME ?? "Naija Sweet Rice",
   get legalName() {
     return `${this.name} Flagship Store`;
   },

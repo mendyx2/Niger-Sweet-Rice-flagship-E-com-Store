@@ -4,7 +4,7 @@ import { hashIp } from "@/lib/crypto";
 import { rateLimit } from "@/lib/rate-limit";
 
 /**
- * Affiliate link: /a/CODE (shop) or /a/CODE?p=niger-sweet-rice&size=25 (a product).
+ * Affiliate link: /a/CODE (shop) or /a/CODE?p=naija-sweet-rice&size=25 (a product).
  * Remembers the affiliate for 30 days (last click wins) and counts the click.
  */
 export async function GET(req: NextRequest, ctx: RouteContext<"/a/[code]">) {

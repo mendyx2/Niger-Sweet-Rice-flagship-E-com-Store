@@ -29,12 +29,18 @@ const NEARBY_TOWNS = ["Suleja", "Madalla", "Zuba", "Mararaba", "Nyanya", "Karu",
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 async function main() {
+  // The brand is Naija Sweet Rice. Rename the product from its earlier working name if it exists.
+  const legacy = await db.product.findUnique({ where: { slug: "niger-sweet-rice" } });
+  if (legacy && !(await db.product.findUnique({ where: { slug: "naija-sweet-rice" } }))) {
+    await db.product.update({ where: { id: legacy.id }, data: { slug: "naija-sweet-rice", name: "Naija Sweet Rice" } });
+  }
+
   const product = await db.product.upsert({
-    where: { slug: "niger-sweet-rice" },
+    where: { slug: "naija-sweet-rice" },
     update: {},
     create: {
-      slug: "niger-sweet-rice",
-      name: "Niger Sweet Rice",
+      slug: "naija-sweet-rice",
+      name: "Naija Sweet Rice",
       description:
         "Clean, stone-free parboiled rice that cooks soft, separate and sweet. Perfect for jollof, fried rice, white rice and tuwo shinkafa. Available in 50kg, 25kg, 5kg and 1kg bags.",
     },

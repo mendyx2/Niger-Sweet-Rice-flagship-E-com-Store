@@ -1,6 +1,6 @@
-# Niger Sweet Rice: Flagship E-commerce Store (Abuja)
+# Naija Sweet Rice: Flagship E-commerce Store (Abuja)
 
-Online store for the Niger Sweet Rice brand: 50kg, 25kg, 5kg and 1kg bags, delivery across Abuja and
+Online store for the Naija Sweet Rice brand: 50kg, 25kg, 5kg and 1kg bags, delivery across Abuja and
 nearby towns, purchase points → discount coupons, bag-replacement returns.
 
 - **Plan & roadmap:** [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)

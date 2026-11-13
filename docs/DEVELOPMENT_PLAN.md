@@ -1,4 +1,4 @@
-# Niger Sweet Rice: Flagship Store, Abuja. Development Plan
+# Naija Sweet Rice: Flagship Store, Abuja. Development Plan
 
 This plan turns the rough brief into a buildable spec: scope, architecture, data model, pages, APIs, and a phased delivery schedule. Anything marked **[ASSUMPTION]** is a reasonable default. Confirm or change it before the phase that depends on it. Open questions are collected in §12.
 
@@ -8,7 +8,7 @@ This plan turns the rough brief into a buildable spec: scope, architecture, data
 
 | # | Question | Decision | Effect on the build |
 |---|---|---|---|
-| 1 | Bag sizes | **50kg, 25kg, 5kg, 1kg.** Prices to be set later | Prices start empty ("Price coming soon"). Staff set them in **/ops/prices** with no code change, and every change is logged |
+| 1 | Bag sizes | **50kg, 25kg, 5kg, 1kg** (1kg sold singly). Prices to be set later | Prices start empty ("Price coming soon"). Staff set them in **/ops/prices** with no code change, and every change is logged |
 | 2 | Back office | **A small `/ops` staff screen is OK** | `/ops` holds prices & stock and delivery zones now; orders, approvals and returns come in later phases |
 | 3 | Affiliate rewards | **Coupons only: purchase points and discount offers.** No cash commission | Everyone (buyers, referrers, affiliates) earns points that convert into coupons. No payouts, no wallet |
 | 4 | Pay on delivery | **No, not for now** | Paystack prepaid only |
@@ -85,7 +85,7 @@ You asked for a React app. I recommend **Next.js (a React framework)** over a pl
 ## 4. Feature specification
 
 ### 4.1 Catalogue and product variants
-- Product = rice line (e.g. *Niger Sweet Rice Premium Parboiled*). Variant = bag size.
+- Product = rice line (e.g. *Naija Sweet Rice Premium Parboiled*). Variant = bag size.
 - Each variant has: `sizeKg`, `sku`, `retailPrice`, `wholesalePrice`, `compareAtPrice` (for promos), `stockQty`, `weightForDelivery`.
 - The product page shows a size selector with a per-kg price ("₦X/kg") so buyers can compare sizes. It shows "Low stock" below a threshold and "Notify me" when out of stock.
 - Structured data: `Product`, `Offer`, `AggregateRating` JSON-LD on every product page.
@@ -175,7 +175,7 @@ Pay-on-delivery: **[DECISION NEEDED]**. Common in Nigeria, but it carries fraud 
 - Area landing pages: `/delivery/abuja/wuse`, `/garki`, `/maitama`, `/asokoro`, `/gwarinpa`, `/kubwa`, `/lugbe`, `/jabi`, `/life-camp`, `/apo`, `/lokogoma` and so on. Each has real content: delivery fee, typical delivery time, nearby landmarks. No duplicate filler text.
 - Use the same Name, Address and Phone everywhere (site footer, Google profile, Facebook, Instagram, Nigerian directories such as VConnect and BusinessList.ng).
 - Content: a "Where to buy rice in Abuja" page, recipe blog (jollof, fried rice, tuwo shinkafa), and a bag-size buying guide ("How long does a 50kg bag last a family of 6?").
-- Target keywords: "buy rice in Abuja", "50kg bag of rice price Abuja", "rice delivery Abuja", "Niger sweet rice", "parboiled rice Abuja".
+- Target keywords: "buy rice in Abuja", "50kg bag of rice price Abuja", "rice delivery Abuja", "Naija sweet rice", "Naija Sweet Rice Abuja", "parboiled rice Abuja".
 
 ---
 
@@ -396,7 +396,7 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 3. Domain, hosting (Vercel), Postgres (Neon) and, if more than one server, Upstash Redis
 4. Scheduled call to `/api/cron/release-reservations` every 10 minutes with `CRON_SECRET`
 5. Real store address, phone, map coordinates; Google Business Profile with the same details
-6. A photo of the 50kg bag (it currently uses the 25kg photo) and a single-pouch 1kg photo if sold singly
+6. A photo of the 50kg bag (it currently uses the 25kg photo)
 7. Confirmed prices, stock and delivery fees in `/ops`
 8. GA4 measurement ID and Meta Pixel ID (optional)
 9. Lawyer review of privacy policy and terms
