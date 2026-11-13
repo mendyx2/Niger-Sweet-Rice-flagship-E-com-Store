@@ -4,6 +4,7 @@ Online store for the Naija Sweet Rice brand: 50kg, 25kg, 5kg and 1kg bags, deliv
 nearby towns, purchase points → discount coupons, bag-replacement returns.
 
 - **Plan & roadmap:** [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)
+- **Proposed distributor network (not built):** [docs/DISTRIBUTOR_NETWORK_PLAN.md](docs/DISTRIBUTOR_NETWORK_PLAN.md)
 - **Stack:** Next.js 16 (React 19, App Router, Cache Components) · TypeScript · Tailwind CSS 4 · PostgreSQL + Prisma · Vitest
 
 ## Run it locally
