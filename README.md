@@ -50,7 +50,8 @@ Price edits show on the shop immediately: catalogue pages are cached and the cac
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the dev server |
-| `npm test` | Unit tests (pricing, coupons, MOQ, points, return window, phone numbers, Paystack signatures) |
+| `npm test` | Unit tests (pricing, coupons, MOQ, points, return window, phone numbers, network routing, statements) |
+| `npm run e2e` | Browser tests on a phone-sized screen: shopping, distributor orders and restocks, HQ team, alerts, replacements. Uses a separate `nsr_e2e` database (create it once: `createdb -U nsr nsr_e2e`), or set `E2E_DATABASE_URL` |
 | `npm run typecheck` | Generate route types and run the TypeScript check |
 | `npm run lint` | ESLint |
 | `npm run build` | Production build (needs a reachable database: pages are prerendered from it) |

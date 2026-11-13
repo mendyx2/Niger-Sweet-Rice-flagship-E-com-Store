@@ -35,6 +35,8 @@ async function redisLimit(url: string, token: string, key: string, limit: number
 }
 
 export async function rateLimit(key: string, limit: number, windowMs: number): Promise<{ ok: boolean; retryAfterMs: number }> {
+  // Automated browser tests sign in many times from one machine. Never active in production.
+  if (process.env.E2E_NO_RATE_LIMIT === "1" && process.env.NODE_ENV !== "production") return { ok: true, retryAfterMs: 0 };
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (url && token) {
