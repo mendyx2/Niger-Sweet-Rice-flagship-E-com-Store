@@ -239,8 +239,7 @@ Confirmed: HQ also uses bank transfer, the per-bag fee is set per bag size, 3-ho
 - **Distributors' own promo codes:** created by distributor owners under Prices & delivery. They're funded by the distributor, only work on that distributor's orders, and aren't credited on statements. HQ can see them on the Promotions page.
 - **Individual HQ logins:** the shared `/ops` password is gone. HQ staff sign in with their own phone, as owner or staff; owners come from `HQ_OWNER_PHONES` and add others under **HQ team**. Only owners can change bank details or the team. The team page shows recent activity by person.
 
-**Not built yet**
-- An HQ map view of the network.
+- **Network map (/ops/network):** a drawn map of Abuja and nearby towns. Each area is coloured by the distributor that covers it (grey outline = HQ), and the dot grows with paid orders in the last 30 days. Tables underneath show the same facts plus each seller's sales and stock. It needs no outside map service. A new area appears in the table and goes on the map once its position is added in `src/lib/network-map.ts`.
 
 ## 12. Still to confirm
 

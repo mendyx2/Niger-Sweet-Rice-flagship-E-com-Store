@@ -372,7 +372,7 @@ Estimates assume 1 full-stack developer plus part-time design input. Each phase 
 - Staff `/ops/orders` (move orders through delivery, rider details, cancel) and `/ops/sellers`
 - Purchase/referral points recorded as pending on payment, confirmed 48h after delivery
 
-**Needed from the business to go live:** Paystack account (secret key + webhook), Termii account (SMS), domain, real store address/phone, photos of each bag size, confirmed delivery fees
+**Needed from the business to go live:** see `docs/DEPLOYMENT.md` (Paystack was later dropped in favour of bank transfer to each seller)
 
 **Done (Phase 4), 12 Nov 2026**
 - Each bag size shows its own photo (5kg and 1kg supplied; 50kg and 25kg fall back to the 5kg photo)

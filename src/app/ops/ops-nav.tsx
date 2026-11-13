@@ -2,7 +2,7 @@ import Link from "next/link";
 import { signOut } from "../login/actions";
 import { getHqStaff } from "@/lib/ops-auth";
 
-export async function OpsNav({ current }: { current: "orders" | "distributors" | "restocks" | "statements" | "returns" | "reports" | "prices" | "zones" | "partners" | "promotions" | "team" }) {
+export async function OpsNav({ current }: { current: "orders" | "network" | "distributors" | "restocks" | "statements" | "returns" | "reports" | "prices" | "zones" | "partners" | "promotions" | "team" }) {
   const staff = await getHqStaff();
   const tab = (href: string, label: string, key: string) => (
     <Link
@@ -22,6 +22,7 @@ export async function OpsNav({ current }: { current: "orders" | "distributors" |
       <nav className="mt-3 flex flex-wrap gap-2 text-sm" aria-label="Staff">
         {tab("/ops/orders", "Orders", "orders")}
         {tab("/ops/distributors", "Distributors", "distributors")}
+        {tab("/ops/network", "Network map", "network")}
         {tab("/ops/restocks", "Restocks", "restocks")}
         {tab("/ops/statements", "Statements", "statements")}
         {tab("/ops/returns", "Replacements", "returns")}
